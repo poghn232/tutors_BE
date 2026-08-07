@@ -1,61 +1,27 @@
 package com.giasuhq.entity;
 
-public class Tutor {
+import jakarta.persistence.*;
+import lombok.*;
+import lombok.experimental.SuperBuilder;
 
-    private Long id;
-    private String fullName;
-    private String subject;
-    private String email;
-    private double hourlyRate;
+@Entity
+@Table(name = "tutors")
+@PrimaryKeyJoinColumn(name = "user_id")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@SuperBuilder
+public class Tutor extends User {
 
-    public Tutor() {
-    }
+    @Column(columnDefinition = "TEXT")
+    private String bio;
 
-    public Tutor(Long id, String fullName, String subject, String email, double hourlyRate) {
-        this.id = id;
-        this.fullName = fullName;
-        this.subject = subject;
-        this.email = email;
-        this.hourlyRate = hourlyRate;
-    }
+    private String qualification;
 
-    public Long getId() {
-        return id;
-    }
+    @Column(name = "experience_years")
+    private Integer experienceYears;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getSubject() {
-        return subject;
-    }
-
-    public void setSubject(String subject) {
-        this.subject = subject;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public double getHourlyRate() {
-        return hourlyRate;
-    }
-
-    public void setHourlyRate(double hourlyRate) {
-        this.hourlyRate = hourlyRate;
-    }
+    @Column(name = "hourly_rate")
+    private Double hourlyRate;
 }
