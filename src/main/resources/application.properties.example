@@ -2,14 +2,14 @@
 # Copy this file to application-local.properties or set environment variables locally.
 # DO NOT commit sensitive passwords/keys to GitHub.
 
-# Database Credentials (Supabase / Local PostgreSQL)
-# Example Supabase Connection String:
-# DB_URL=jdbc:postgresql://db.xxx.supabase.co:5432/postgres?sslmode=require
-# DB_USERNAME=postgres
-# DB_PASSWORD=your-supabase-db-password
+# Database Credentials (MySQL)
+# Example MySQL Connection String:
+# DB_URL=jdbc:mysql://localhost:3306/giasuhq?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+# DB_USERNAME=root
+# DB_PASSWORD=your-mysql-db-password
 
-DB_URL=jdbc:postgresql://localhost:5432/giasuhq
-DB_USERNAME=postgres
+DB_URL=jdbc:mysql://localhost:3306/giasuhq?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_USERNAME=root
 DB_PASSWORD=your_password_here
 
 # Frontend CORS URL

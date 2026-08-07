@@ -5,7 +5,7 @@ Hệ thống Backend API cho dự án GiaSuHQ (Quản lý dạy kèm & AI Note).
 ## 🚀 Công nghệ sử dụng
 - **Ngôn ngữ:** Java 17
 - **Framework:** Spring Boot 3.3.5 (Web, JPA, Validation)
-- **Cơ sở dữ liệu:** PostgreSQL (Deploy trên **Supabase**)
+- **Cơ sở dữ liệu:** MySQL
 - **Build Tool:** Maven
 
 ---
@@ -15,16 +15,16 @@ Hệ thống Backend API cho dự án GiaSuHQ (Quản lý dạy kèm & AI Note).
 ### 1. Yêu cầu môi trường
 - JDK 17 trở lên
 - Maven 3.8+ (hoặc dùng IntelliJ IDEA)
-- Cơ sở dữ liệu PostgreSQL (local hoặc tài khoản Supabase)
+- Cơ sở dữ liệu MySQL (local hoặc remote server)
 
 ### 2. Cấu hình biến môi trường
 Tạo các biến môi trường hoặc chạy với cấu hình local. Bạn có thể xem mẫu tại `src/main/resources/application.properties.example`.
 
 Các biến môi trường cần thiết:
 ```env
-DB_URL=jdbc:postgresql://<SUPABASE_HOST>:5432/postgres?sslmode=require
-DB_USERNAME=postgres
-DB_PASSWORD=<MẬT_KHẨU_SUPABASE>
+DB_URL=jdbc:mysql://localhost:3306/giasuhq?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_USERNAME=root
+DB_PASSWORD=<MẬT_KHẨU_MYSQL>
 CORS_ORIGINS=http://localhost:5173
 ```
 
