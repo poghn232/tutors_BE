@@ -27,4 +27,10 @@ public class GlobalExceptionHandler {
                 .orElse("Invalid request");
         return ApiResponse.error(message);
     }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResponse<Void> handleIllegalArgument(IllegalArgumentException exception) {
+        return ApiResponse.error(exception.getMessage());
+    }
 }
