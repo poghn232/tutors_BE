@@ -126,7 +126,7 @@ public class LessonServiceImpl implements LessonService {
 
     private List<Lesson> bootstrapDemoLessonForUser(User currentUser) {
         Subject subject = subjectRepository.findAll().stream().findFirst().orElseGet(() -> 
-            subjectRepository.save(Subject.builder().name("Toán học").description("Môn Toán THPT").build())
+            subjectRepository.save(Subject.builder().code("MATH").name("Toán học").description("Môn Toán THPT").build())
         );
 
         Tutor tutor = (currentUser instanceof Tutor) ? (Tutor) currentUser : 
