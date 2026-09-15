@@ -8,7 +8,7 @@ INSERT INTO users (id, email, password, full_name, phone, role) VALUES
 (2, 'parent.tran@giasuhq.com', '$2a$10$e.g123456hash', 'Trần Thị B', '0907654321', 'PARENT'),
 (3, 'student.tran@giasuhq.com', '$2a$10$e.g123456hash', 'Trần Văn C', '0909999999', 'STUDENT');
 
-SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
+-- SELECT setval('users_id_seq', (SELECT MAX(id) FROM users));
 
 -- 2. Insert Inherited Role Data
 INSERT INTO tutors (user_id, bio, qualification, experience_years, hourly_rate) VALUES
@@ -26,7 +26,7 @@ INSERT INTO subjects (id, code, name, description) VALUES
 (2, 'PHYS', 'Vật Lý', 'Vật Lý đại cương & Phổ thông'),
 (3, 'CHEM', 'Hóa Học', 'Hóa Học Phổ thông');
 
-SELECT setval('subjects_id_seq', (SELECT MAX(id) FROM subjects));
+-- SELECT setval('subjects_id_seq', (SELECT MAX(id) FROM subjects));
 
 -- 4. Insert Tutor Subjects
 INSERT INTO tutor_subjects (tutor_id, subject_id) VALUES
@@ -37,13 +37,13 @@ INSERT INTO tutor_subjects (tutor_id, subject_id) VALUES
 INSERT INTO tutoring_classes (id, class_name, tutor_id, student_id, parent_id, subject_id, schedule_description, status) VALUES
 (1, 'Lớp Toán 11 - Em Trần Văn C', 1, 3, 2, 1, 'Thứ 2 - Thứ 6 (18:00 - 20:00)', 'ACTIVE');
 
-SELECT setval('tutoring_classes_id_seq', (SELECT MAX(id) FROM tutoring_classes));
+-- SELECT setval('tutoring_classes_id_seq', (SELECT MAX(id) FROM tutoring_classes));
 
 -- 6. Insert Completed Lesson
 INSERT INTO lessons (id, class_id, title, start_time, end_time, status) VALUES
 (1, 1, 'Buổi 1: Phương trình bậc 2 & Công thức Delta', '2026-08-07 18:00:00', '2026-08-07 20:00:00', 'COMPLETED');
 
-SELECT setval('lessons_id_seq', (SELECT MAX(id) FROM lessons));
+-- SELECT setval('lessons_id_seq', (SELECT MAX(id) FROM lessons));
 
 -- 7. Insert Lesson Note & AI Note
 INSERT INTO lesson_notes (lesson_id, raw_tutor_note, ai_summary, key_learnings, areas_for_improvement) VALUES
