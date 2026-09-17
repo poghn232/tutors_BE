@@ -2,6 +2,8 @@ package com.giasuhq.service;
 
 import com.giasuhq.dto.request.CreateLessonNoteRequest;
 import com.giasuhq.dto.request.CreateLessonRequest;
+import com.giasuhq.dto.request.GenerateAiNoteRequest;
+import com.giasuhq.dto.response.GenerateAiNoteResponse;
 import com.giasuhq.dto.response.LessonNoteResponse;
 import com.giasuhq.dto.response.LessonResponse;
 import com.giasuhq.entity.LessonStatus;
@@ -14,4 +16,6 @@ public interface LessonService {
     List<LessonResponse> getLessonsForUser(User currentUser);
     LessonResponse updateLessonStatus(Long lessonId, LessonStatus status, User currentUser);
     LessonNoteResponse addOrUpdateLessonNote(Long lessonId, CreateLessonNoteRequest request, User currentUser);
+    GenerateAiNoteResponse generateAiLessonNote(Long lessonId, GenerateAiNoteRequest request, User currentUser);
 }
+
