@@ -2,8 +2,10 @@ package com.giasuhq.controller;
 
 import com.giasuhq.dto.request.CreateLessonNoteRequest;
 import com.giasuhq.dto.request.CreateLessonRequest;
+import com.giasuhq.dto.request.GenerateAiNoteRequest;
 import com.giasuhq.dto.request.UpdateLessonStatusRequest;
 import com.giasuhq.dto.response.ApiResponse;
+import com.giasuhq.dto.response.GenerateAiNoteResponse;
 import com.giasuhq.dto.response.LessonNoteResponse;
 import com.giasuhq.dto.response.LessonResponse;
 import com.giasuhq.entity.User;
@@ -57,6 +59,17 @@ public class LessonController {
         LessonNoteResponse response = lessonService.addOrUpdateLessonNote(id, request, user);
         return ApiResponse.success("Lưu ghi chú buổi học & AI Note thành công!", response);
     }
+
+    @PostMapping("/{id}/ai-note-suggest")
+    public ApiResponse<GenerateAiNoteResponse> generateAiNoteSuggest(
+            @PathVariable Long id,
+            @Valid @RequestBody GenerateAiNoteRequest request,
+            Principal principal) {
+        User user = getUserByPrincipal(principal);
+        GenerateAiNoteResponse response = lessonService.generateAiLessonNote(id, request, user);
+        return ApiResponse.success("AI đã tạo gợi ý ghi chú thành công!", response);
+    }
+
 
     private User getUserByPrincipal(Principal principal) {
         if (principal == null) {

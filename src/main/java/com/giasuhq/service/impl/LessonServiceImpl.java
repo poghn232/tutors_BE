@@ -18,6 +18,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.giasuhq.dto.request.GenerateAiNoteRequest;
+import com.giasuhq.dto.response.GenerateAiNoteResponse;
+import com.giasuhq.service.GeminiAiService;
+
 @Service
 @RequiredArgsConstructor
 public class LessonServiceImpl implements LessonService {
@@ -26,6 +30,7 @@ public class LessonServiceImpl implements LessonService {
     private final LessonNoteRepository lessonNoteRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final SubjectRepository subjectRepository;
+    private final GeminiAiService geminiAiService;
 
     @Override
     @Transactional
@@ -122,6 +127,24 @@ public class LessonServiceImpl implements LessonService {
         }
 
         return mapToLessonNoteResponse(savedNote);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GenerateAiNoteResponse generateAiLessonNote(Long lessonId, GenerateAiNoteRequest request, User currentUser) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học với ID: " + lessonId));
+
+        TutoringClass tutoringClass = lesson.getTutoringClass();
+        String subjectName = (tutoringClass != null && tutoringClass.getSubject() != null) 
+                ? tutoringClass.getSubject().getName() 
+                : "Môn học";
+        String studentName = (tutoringClass != null && tutoringClass.getStudent() != null) 
+                ? tutoringClass.getStudent().getFullName() 
+                : "Học sinh";
+        String lessonTitle = lesson.getTitle() != null ? lesson.getTitle() : "Buổi học";
+
+        return geminiAiService.generateLessonNote(subjectName, studentName, lessonTitle, request.getRawNote());
     }
 
     private List<Lesson> bootstrapDemoLessonForUser(User currentUser) {
