@@ -1,5 +1,6 @@
 package com.giasuhq.controller;
 
+import com.giasuhq.dto.request.GoogleLoginRequest;
 import com.giasuhq.dto.request.LoginRequest;
 import com.giasuhq.dto.request.RegisterRequest;
 import com.giasuhq.dto.response.ApiResponse;
@@ -29,6 +30,12 @@ public class AuthController {
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ApiResponse.success("Đăng nhập thành công!", response);
+    }
+
+    @PostMapping("/google")
+    public ApiResponse<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        AuthResponse response = authService.loginWithGoogle(request);
+        return ApiResponse.success("Đăng nhập bằng Google thành công!", response);
     }
 
     @GetMapping("/me")

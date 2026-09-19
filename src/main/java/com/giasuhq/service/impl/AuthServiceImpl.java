@@ -1,8 +1,10 @@
 package com.giasuhq.service.impl;
 
+import com.giasuhq.dto.request.GoogleLoginRequest;
 import com.giasuhq.dto.request.LoginRequest;
 import com.giasuhq.dto.request.RegisterRequest;
 import com.giasuhq.dto.response.AuthResponse;
+import com.giasuhq.dto.response.GoogleUserInfo;
 import com.giasuhq.dto.response.UserResponse;
 import com.giasuhq.entity.Parent;
 import com.giasuhq.entity.Role;
@@ -17,6 +19,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -106,6 +112,80 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin người dùng với email: " + email));
         return mapToUserResponse(user);
+    }
+
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    @Override
+    @Transactional
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        String rawToken = request.getIdToken() != null ? request.getIdToken().trim() : "";
+        String googleTokenUrl = rawToken.startsWith("ya29.")
+                ? "https://oauth2.googleapis.com/tokeninfo?access_token=" + rawToken
+                : "https://oauth2.googleapis.com/tokeninfo?id_token=" + rawToken;
+        GoogleUserInfo userInfo;
+        try {
+            userInfo = restTemplate.getForObject(googleTokenUrl, GoogleUserInfo.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Token Google không hợp lệ hoặc đã hết hạn. Vui lòng thử lại.");
+        }
+
+        if (userInfo == null || userInfo.getEmail() == null || !"true".equalsIgnoreCase(userInfo.getEmailVerified())) {
+            throw new IllegalArgumentException("Không thể xác thực tài khoản Google hoặc email chưa được xác minh.");
+        }
+
+        String email = userInfo.getEmail().trim().toLowerCase();
+        Optional<User> existingUserOpt = userRepository.findByEmail(email);
+
+        User user;
+        if (existingUserOpt.isPresent()) {
+            user = existingUserOpt.get();
+            if ((user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) && userInfo.getPicture() != null) {
+                user.setAvatarUrl(userInfo.getPicture());
+                user = userRepository.save(user);
+            }
+        } else {
+            Role role = request.getRole() != null ? request.getRole() : Role.STUDENT;
+            String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
+            String fullName = (userInfo.getName() != null && !userInfo.getName().isBlank())
+                    ? userInfo.getName()
+                    : email.split("@")[0];
+
+            if (role == Role.TUTOR) {
+                user = Tutor.builder()
+                        .email(email)
+                        .password(randomPassword)
+                        .fullName(fullName)
+                        .avatarUrl(userInfo.getPicture())
+                        .role(Role.TUTOR)
+                        .build();
+            } else if (role == Role.PARENT) {
+                user = Parent.builder()
+                        .email(email)
+                        .password(randomPassword)
+                        .fullName(fullName)
+                        .avatarUrl(userInfo.getPicture())
+                        .role(Role.PARENT)
+                        .build();
+            } else {
+                user = Student.builder()
+                        .email(email)
+                        .password(randomPassword)
+                        .fullName(fullName)
+                        .avatarUrl(userInfo.getPicture())
+                        .role(Role.STUDENT)
+                        .build();
+            }
+            user = userRepository.save(user);
+        }
+
+        String token = jwtTokenProvider.generateToken(user.getEmail());
+
+        return AuthResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .user(mapToUserResponse(user))
+                .build();
     }
 
     private UserResponse mapToUserResponse(User user) {
