@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: giasuhq-backend
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_DRIVER
+        value: com.mysql.cj.jdbc.Driver
+      - key: JPA_DDL_AUTO
+        value: update
+      - key: SQL_INIT_MODE
+        value: always
+      - key: CORS_ORIGINS
+        value: http://localhost:5173,https://your-frontend-domain.com
