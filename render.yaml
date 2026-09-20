@@ -19,6 +19,6 @@ services:
       - key: JPA_DDL_AUTO
         value: update
       - key: SQL_INIT_MODE
-        value: always
+        value: never
       - key: CORS_ORIGINS
-        value: http://localhost:5173,https://your-frontend-domain.com
+        value: https://tutors-fe.vercel.app
