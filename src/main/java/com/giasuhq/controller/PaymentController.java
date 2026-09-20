@@ -309,11 +309,14 @@ public class PaymentController {
             // Auto-activate VIP in database if user is logged in
             if (principal != null) {
                 try {
-                    userRepository.findByEmail(principal.getName()).ifPresent(u -> {
-                        u.setIsVip(true);
-                        userRepository.save(u);
-                        data.put("vipActivated", true);
-                    });
+                    String email = principal.getName();
+                    userRepository.findByEmailIgnoreCase(email)
+                            .or(() -> userRepository.findByEmail(email))
+                            .ifPresent(u -> {
+                                u.setIsVip(true);
+                                userRepository.save(u);
+                                data.put("vipActivated", true);
+                            });
                 } catch (Exception ignored) {}
             }
         }
@@ -328,7 +331,9 @@ public class PaymentController {
         if (principal == null) {
             return ApiResponse.error("Vui lòng đăng nhập để kích hoạt quyền lợi VIP.");
         }
-        User user = userRepository.findByEmail(principal.getName())
+        String email = principal.getName();
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .or(() -> userRepository.findByEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
         user.setIsVip(true);
         userRepository.save(user);

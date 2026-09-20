@@ -44,9 +44,11 @@ public class TutoringClassController {
 
     private User getUserByPrincipal(Principal principal) {
         if (principal == null) {
-            throw new IllegalArgumentException("Chưa đăng nhập.");
+            throw new IllegalArgumentException("Chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
         }
-        return userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
+        String email = principal.getName();
+        return userRepository.findByEmailIgnoreCase(email)
+                .or(() -> userRepository.findByEmail(email))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng với tài khoản: " + email));
     }
 }

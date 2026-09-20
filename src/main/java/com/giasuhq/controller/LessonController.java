@@ -75,7 +75,9 @@ public class LessonController {
         if (principal == null) {
             throw new IllegalArgumentException("Người dùng chưa đăng nhập hoặc phiên làm việc hết hạn.");
         }
-        return userRepository.findByEmail(principal.getName())
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng với email: " + principal.getName()));
+        String email = principal.getName();
+        return userRepository.findByEmailIgnoreCase(email)
+                .or(() -> userRepository.findByEmail(email))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng với email: " + email));
     }
 }
