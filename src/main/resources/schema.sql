@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url VARCHAR(500),
     role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'STUDENT', 'TUTOR', 'ADMIN')),
     is_vip BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Tutors Table (Kế thừa từ Users qua FK user_id)
@@ -41,7 +42,8 @@ CREATE TABLE IF NOT EXISTS students (
     grade_level VARCHAR(50),               -- Khối lớp (Lớp 10, Lớp 11...)
     school_name VARCHAR(255),
     CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_students_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id) ON DELETE SET NULL
+    CONSTRAINT fk_students_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id) ON DELETE SET NULL,
+    INDEX idx_students_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. Subjects Table (Danh mục môn học)
@@ -75,7 +77,9 @@ CREATE TABLE IF NOT EXISTS tutoring_classes (
     CONSTRAINT fk_classes_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id),
     CONSTRAINT fk_classes_student FOREIGN KEY (student_id) REFERENCES students(user_id),
     CONSTRAINT fk_classes_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id),
-    CONSTRAINT fk_classes_subject FOREIGN KEY (subject_id) REFERENCES subjects(id)
+    CONSTRAINT fk_classes_subject FOREIGN KEY (subject_id) REFERENCES subjects(id),
+    INDEX idx_classes_tutor (tutor_id),
+    INDEX idx_classes_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Lessons Table (Các Buổi học chi tiết của Lớp học)
@@ -87,7 +91,8 @@ CREATE TABLE IF NOT EXISTS lessons (
     end_time TIMESTAMP NOT NULL,
     status VARCHAR(20) DEFAULT 'SCHEDULED' CHECK (status IN ('SCHEDULED', 'COMPLETED', 'CANCELLED')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_lessons_class FOREIGN KEY (class_id) REFERENCES tutoring_classes(id) ON DELETE CASCADE
+    CONSTRAINT fk_lessons_class FOREIGN KEY (class_id) REFERENCES tutoring_classes(id) ON DELETE CASCADE,
+    INDEX idx_lessons_class (class_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 9. Lesson Notes & AI Note Table (Ghi chú thô & AI Note của buổi học)
@@ -102,10 +107,3 @@ CREATE TABLE IF NOT EXISTS lesson_notes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_notes_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Indexes for Query Performance
-CREATE INDEX idx_users_role ON users(role);
-CREATE INDEX idx_students_parent ON students(parent_id);
-CREATE INDEX idx_classes_tutor ON tutoring_classes(tutor_id);
-CREATE INDEX idx_classes_student ON tutoring_classes(student_id);
-CREATE INDEX idx_lessons_class ON lessons(class_id);
