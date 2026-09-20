@@ -40,18 +40,26 @@ public class UserServiceImpl implements UserService {
 
         if (currentUser instanceof Tutor) {
             Tutor tutor = (Tutor) currentUser;
-            if (request.getBio() != null) tutor.setBio(request.getBio());
-            if (request.getQualification() != null) tutor.setQualification(request.getQualification());
-            if (request.getExperienceYears() != null) tutor.setExperienceYears(request.getExperienceYears());
-            if (request.getHourlyRate() != null) tutor.setHourlyRate(request.getHourlyRate());
+            if (request.getBio() != null)
+                tutor.setBio(request.getBio());
+            if (request.getQualification() != null)
+                tutor.setQualification(request.getQualification());
+            if (request.getExperienceYears() != null)
+                tutor.setExperienceYears(request.getExperienceYears());
+            if (request.getHourlyRate() != null)
+                tutor.setHourlyRate(request.getHourlyRate());
         } else if (currentUser instanceof Parent) {
             Parent parent = (Parent) currentUser;
-            if (request.getAddress() != null) parent.setAddress(request.getAddress());
-            if (request.getEmergencyContact() != null) parent.setEmergencyContact(request.getEmergencyContact());
+            if (request.getAddress() != null)
+                parent.setAddress(request.getAddress());
+            if (request.getEmergencyContact() != null)
+                parent.setEmergencyContact(request.getEmergencyContact());
         } else if (currentUser instanceof Student) {
             Student student = (Student) currentUser;
-            if (request.getGradeLevel() != null) student.setGradeLevel(request.getGradeLevel());
-            if (request.getSchoolName() != null) student.setSchoolName(request.getSchoolName());
+            if (request.getGradeLevel() != null)
+                student.setGradeLevel(request.getGradeLevel());
+            if (request.getSchoolName() != null)
+                student.setSchoolName(request.getSchoolName());
         }
 
         User updated = userRepository.save(currentUser);
@@ -72,17 +80,17 @@ public class UserServiceImpl implements UserService {
         if (user instanceof Tutor) {
             Tutor t = (Tutor) user;
             builder.bio(t.getBio())
-                   .qualification(t.getQualification())
-                   .experienceYears(t.getExperienceYears())
-                   .hourlyRate(t.getHourlyRate());
+                    .qualification(t.getQualification())
+                    .experienceYears(t.getExperienceYears())
+                    .hourlyRate(t.getHourlyRate());
         } else if (user instanceof Parent) {
             Parent p = (Parent) user;
             builder.address(p.getAddress())
-                   .emergencyContact(p.getEmergencyContact());
+                    .emergencyContact(p.getEmergencyContact());
         } else if (user instanceof Student) {
             Student s = (Student) user;
             builder.gradeLevel(s.getGradeLevel())
-                   .schoolName(s.getSchoolName());
+                    .schoolName(s.getSchoolName());
         }
 
         return builder.build();

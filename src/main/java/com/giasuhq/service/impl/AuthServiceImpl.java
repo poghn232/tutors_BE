@@ -90,7 +90,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
+        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .or(() -> userRepository.findByEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu không chính xác."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {

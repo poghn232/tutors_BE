@@ -123,6 +123,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         }
 
         // 3. Resolve Student (Học sinh)
+        Parent parent = null;
         Student student = null;
         if (currentUser != null && currentUser.getRole() == Role.STUDENT) {
             student = studentRepository.findById(currentUser.getId()).orElseGet(() -> {
@@ -138,6 +139,40 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                         .gradeLevel("Lớp 12")
                         .build());
             });
+        } else if (currentUser != null && currentUser.getRole() == Role.PARENT) {
+            parent = parentRepository.findById(currentUser.getId()).orElseGet(() -> {
+                return parentRepository.save(Parent.builder()
+                        .id(currentUser.getId())
+                        .email(currentUser.getEmail())
+                        .fullName(currentUser.getFullName())
+                        .password(currentUser.getPassword())
+                        .phone(currentUser.getPhone())
+                        .avatarUrl(currentUser.getAvatarUrl())
+                        .role(Role.PARENT)
+                        .build());
+            });
+
+            if (request.getStudentId() != null) {
+                student = studentRepository.findById(request.getStudentId())
+                        .filter(s -> s.getParent() != null && s.getParent().getId().equals(parent.getId()))
+                        .orElse(null);
+            }
+            if (student == null) {
+                String studentEmail = request.getStudentEmail();
+                if (studentEmail == null || studentEmail.isBlank()) {
+                    studentEmail = "student." + System.currentTimeMillis() + "@giasuhq.com";
+                }
+                student = studentRepository.save(Student.builder()
+                        .email(studentEmail.trim().toLowerCase())
+                        .fullName(request.getStudentName() != null && !request.getStudentName().isBlank() ? request.getStudentName() : currentUser.getFullName())
+                        .password(currentUser.getPassword())
+                        .phone(currentUser.getPhone())
+                        .avatarUrl(currentUser.getAvatarUrl())
+                        .role(Role.STUDENT)
+                        .parent(parent)
+                        .gradeLevel("Lớp 12")
+                        .build());
+            }
         } else if (request.getStudentId() != null) {
             student = studentRepository.findById(request.getStudentId()).orElse(null);
         }
@@ -161,8 +196,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         }
 
         // 4. Resolve Parent (Phụ huynh)
-        Parent parent = null;
-        if (currentUser != null && currentUser.getRole() == Role.PARENT) {
+        if (parent == null && currentUser != null && currentUser.getRole() == Role.PARENT) {
             parent = parentRepository.findById(currentUser.getId()).orElseGet(() -> {
                 return parentRepository.save(Parent.builder()
                         .id(currentUser.getId())
