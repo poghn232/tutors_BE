@@ -13,6 +13,7 @@ public class UpdateProfileRequest {
     private String fullName;
     private String phone;
     private String avatarUrl;
+    private Boolean isVip;
 
     // Các trường dành riêng cho Gia sư
     private String bio;

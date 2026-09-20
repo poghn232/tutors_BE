@@ -27,6 +27,7 @@ CREATE TABLE users (
     phone VARCHAR(50),
     avatar_url VARCHAR(500),
     role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'STUDENT', 'TUTOR', 'ADMIN')),
+    is_vip BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

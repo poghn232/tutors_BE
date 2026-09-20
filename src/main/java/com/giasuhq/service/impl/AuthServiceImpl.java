@@ -196,6 +196,7 @@ public class AuthServiceImpl implements AuthService {
                 .phone(user.getPhone())
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
+                .isVip(user.getIsVip() != null && user.getIsVip())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

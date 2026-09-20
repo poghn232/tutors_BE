@@ -34,6 +34,9 @@ public class UserServiceImpl implements UserService {
         if (request.getAvatarUrl() != null) {
             currentUser.setAvatarUrl(request.getAvatarUrl());
         }
+        if (request.getIsVip() != null) {
+            currentUser.setIsVip(request.getIsVip());
+        }
 
         if (currentUser instanceof Tutor) {
             Tutor tutor = (Tutor) currentUser;
@@ -63,6 +66,7 @@ public class UserServiceImpl implements UserService {
                 .phone(user.getPhone())
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
+                .isVip(user.getIsVip() != null && user.getIsVip())
                 .createdAt(user.getCreatedAt());
 
         if (user instanceof Tutor) {

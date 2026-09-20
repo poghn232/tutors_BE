@@ -37,6 +37,10 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Column(name = "is_vip", nullable = false)
+    @Builder.Default
+    private Boolean isVip = false;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

@@ -17,6 +17,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
+import com.giasuhq.entity.User;
+import com.giasuhq.repository.UserRepository;
+import com.giasuhq.service.UserService;
+import java.security.Principal;
 import java.util.regex.Pattern;
 
 @RestController
@@ -25,6 +29,8 @@ import java.util.regex.Pattern;
 public class PaymentController {
 
     private final VNPayConfig vnPayConfig;
+    private final UserRepository userRepository;
+    private final UserService userService;
     private static final Map<String, SepayWebhookRequest> confirmedSepayOrders = new ConcurrentHashMap<>();
 
     @GetMapping
@@ -284,7 +290,10 @@ public class PaymentController {
      * Polling endpoint for frontend to check if a specific SePay transaction has arrived
      */
     @GetMapping("/sepay/check-status")
-    public ApiResponse<Map<String, Object>> checkSepayStatus(@RequestParam String orderCode) {
+    public ApiResponse<Map<String, Object>> checkSepayStatus(
+            @RequestParam String orderCode,
+            Principal principal
+    ) {
         Map<String, Object> data = new HashMap<>();
         String key = orderCode.toUpperCase().trim();
         boolean isPaid = confirmedSepayOrders.containsKey(key);
@@ -296,7 +305,38 @@ public class PaymentController {
             data.put("referenceCode", tx.getReferenceCode());
             data.put("gateway", tx.getGateway());
             data.put("accountNumber", tx.getAccountNumber());
+
+            // Auto-activate VIP in database if user is logged in
+            if (principal != null) {
+                try {
+                    userRepository.findByEmail(principal.getName()).ifPresent(u -> {
+                        u.setIsVip(true);
+                        userRepository.save(u);
+                        data.put("vipActivated", true);
+                    });
+                } catch (Exception ignored) {}
+            }
         }
         return ApiResponse.success("Kiểm tra trạng thái SePay", data);
+    }
+
+    /**
+     * Explicit VIP Activation endpoint for logged in users
+     */
+    @PostMapping("/activate-vip")
+    public ApiResponse<Map<String, Object>> activateVip(Principal principal) {
+        if (principal == null) {
+            return ApiResponse.error("Vui lòng đăng nhập để kích hoạt quyền lợi VIP.");
+        }
+        User user = userRepository.findByEmail(principal.getName())
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
+        user.setIsVip(true);
+        userRepository.save(user);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("isVip", true);
+        data.put("email", user.getEmail());
+        data.put("fullName", user.getFullName());
+        return ApiResponse.success("Đặc quyền VIP đã được kích hoạt thành công vào cơ sở dữ liệu!", data);
     }
 }
