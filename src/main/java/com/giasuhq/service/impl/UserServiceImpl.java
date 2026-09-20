@@ -34,9 +34,6 @@ public class UserServiceImpl implements UserService {
         if (request.getAvatarUrl() != null) {
             currentUser.setAvatarUrl(request.getAvatarUrl());
         }
-        if (request.getIsVip() != null) {
-            currentUser.setIsVip(request.getIsVip());
-        }
 
         if (currentUser instanceof Tutor) {
             Tutor tutor = (Tutor) currentUser;

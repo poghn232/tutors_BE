@@ -153,8 +153,9 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             });
 
             if (request.getStudentId() != null) {
+                final Long currentParentId = parent.getId();
                 student = studentRepository.findById(request.getStudentId())
-                        .filter(s -> s.getParent() != null && s.getParent().getId().equals(parent.getId()))
+                        .filter(s -> s.getParent() != null && currentParentId.equals(s.getParent().getId()))
                         .orElse(null);
             }
             if (student == null) {
