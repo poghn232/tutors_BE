@@ -3,23 +3,8 @@
 -- Compatible with Local & Remote MySQL Databases
 -- =========================================================
 
-SET FOREIGN_KEY_CHECKS = 0;
-
--- Drop existing tables if re-initializing
-DROP TABLE IF EXISTS lesson_notes;
-DROP TABLE IF EXISTS lessons;
-DROP TABLE IF EXISTS tutoring_classes;
-DROP TABLE IF EXISTS tutor_subjects;
-DROP TABLE IF EXISTS subjects;
-DROP TABLE IF EXISTS parents;
-DROP TABLE IF EXISTS students;
-DROP TABLE IF EXISTS tutors;
-DROP TABLE IF EXISTS users;
-
-SET FOREIGN_KEY_CHECKS = 1;
-
 -- 1. Base Users Table (Chứa thông tin đăng nhập & định danh chung)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
@@ -32,7 +17,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2. Tutors Table (Kế thừa từ Users qua FK user_id)
-CREATE TABLE tutors (
+CREATE TABLE IF NOT EXISTS tutors (
     user_id BIGINT PRIMARY KEY,
     bio TEXT,
     qualification VARCHAR(255),           -- Trình độ (Đại học, Thạc sĩ...)
@@ -42,7 +27,7 @@ CREATE TABLE tutors (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. Parents Table (Kế thừa từ Users qua FK user_id)
-CREATE TABLE parents (
+CREATE TABLE IF NOT EXISTS parents (
     user_id BIGINT PRIMARY KEY,
     address VARCHAR(255),
     emergency_contact VARCHAR(50),
@@ -50,7 +35,7 @@ CREATE TABLE parents (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4. Students Table (Kế thừa từ Users qua FK user_id, liên kết Phụ huynh)
-CREATE TABLE students (
+CREATE TABLE IF NOT EXISTS students (
     user_id BIGINT PRIMARY KEY,
     parent_id BIGINT,
     grade_level VARCHAR(50),               -- Khối lớp (Lớp 10, Lớp 11...)
@@ -60,7 +45,7 @@ CREATE TABLE students (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. Subjects Table (Danh mục môn học)
-CREATE TABLE subjects (
+CREATE TABLE IF NOT EXISTS subjects (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,      -- MATH, PHYS, CHEM, ENG...
     name VARCHAR(100) NOT NULL,            -- Toán Học, Vật Lý, Hóa Học...
@@ -68,7 +53,7 @@ CREATE TABLE subjects (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 6. Tutor Subjects (Bảng trung gian Môn học Gia sư nhận dạy)
-CREATE TABLE tutor_subjects (
+CREATE TABLE IF NOT EXISTS tutor_subjects (
     tutor_id BIGINT NOT NULL,
     subject_id BIGINT NOT NULL,
     PRIMARY KEY (tutor_id, subject_id),
@@ -77,7 +62,7 @@ CREATE TABLE tutor_subjects (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 7. Tutoring Classes Table (Lớp học / Hợp đồng Dạy kèm nối Tutor - Student - Parent)
-CREATE TABLE tutoring_classes (
+CREATE TABLE IF NOT EXISTS tutoring_classes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     class_name VARCHAR(255) NOT NULL,
     tutor_id BIGINT NOT NULL,
@@ -94,7 +79,7 @@ CREATE TABLE tutoring_classes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Lessons Table (Các Buổi học chi tiết của Lớp học)
-CREATE TABLE lessons (
+CREATE TABLE IF NOT EXISTS lessons (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     class_id BIGINT NOT NULL,
     title VARCHAR(255) NOT NULL,
@@ -106,7 +91,7 @@ CREATE TABLE lessons (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 9. Lesson Notes & AI Note Table (Ghi chú thô & AI Note của buổi học)
-CREATE TABLE lesson_notes (
+CREATE TABLE IF NOT EXISTS lesson_notes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     lesson_id BIGINT UNIQUE NOT NULL,
     raw_tutor_note TEXT NOT NULL,          -- Ghi chú thô do gia sư nhập
