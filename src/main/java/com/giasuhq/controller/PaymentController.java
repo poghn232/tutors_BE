@@ -94,7 +94,12 @@ public class PaymentController {
         vnp_Params.put("vnp_OrderInfo", orderInfo);
         vnp_Params.put("vnp_OrderType", request.getOrderType() != null ? request.getOrderType() : "other");
         vnp_Params.put("vnp_Locale", "vn");
-        vnp_Params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+
+        String returnUrl = request.getReturnUrl();
+        if (returnUrl == null || returnUrl.trim().isEmpty()) {
+            returnUrl = vnPayConfig.getReturnUrl();
+        }
+        vnp_Params.put("vnp_ReturnUrl", returnUrl);
         vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
 
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));

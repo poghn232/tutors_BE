@@ -16,4 +16,5 @@ public class VNPayPaymentRequest {
     private String bankCode;
     private Long invoiceId;
     private String planId;
+    private String returnUrl;
 }
