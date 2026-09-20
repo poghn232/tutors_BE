@@ -31,6 +31,10 @@ public class LessonServiceImpl implements LessonService {
     private final TutoringClassRepository tutoringClassRepository;
     private final SubjectRepository subjectRepository;
     private final GeminiAiService geminiAiService;
+    private final TutorRepository tutorRepository;
+    private final StudentRepository studentRepository;
+    private final ParentRepository parentRepository;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional
@@ -149,17 +153,71 @@ public class LessonServiceImpl implements LessonService {
 
     private List<Lesson> bootstrapDemoLessonForUser(User currentUser) {
         Subject subject = subjectRepository.findAll().stream().findFirst().orElseGet(() -> 
-            subjectRepository.save(Subject.builder().code("MATH").name("Toán học").description("Môn Toán THPT").build())
+            subjectRepository.save(Subject.builder().code("MATH").name("Toán Học").description("Môn Toán THPT").build())
         );
 
-        Tutor tutor = (currentUser instanceof Tutor) ? (Tutor) currentUser : 
-            Tutor.builder().email("giasumau@giasuhq.com").fullName("Gia sư Nguyễn Văn Minh").password("123456").role(Role.TUTOR).build();
-        
-        Student student = (currentUser instanceof Student) ? (Student) currentUser : 
-            Student.builder().email("hocsinhmau@giasuhq.com").fullName("Học sinh Trần Bảo Nam").password("123456").role(Role.STUDENT).gradeLevel("Lớp 12").build();
+        Tutor tutor;
+        if (currentUser != null && currentUser.getRole() == Role.TUTOR) {
+            tutor = tutorRepository.findById(currentUser.getId()).orElse(null);
+        } else {
+            tutor = tutorRepository.findAll().stream().findFirst().orElse(null);
+        }
+        if (tutor == null) {
+            User baseUser = userRepository.save(User.builder()
+                    .email("giasumau@giasuhq.com")
+                    .fullName("TS. Hoàng Thiên Ứng")
+                    .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
+                    .role(Role.TUTOR)
+                    .build());
+            tutor = tutorRepository.save(Tutor.builder()
+                    .id(baseUser.getId())
+                    .email(baseUser.getEmail())
+                    .fullName(baseUser.getFullName())
+                    .password(baseUser.getPassword())
+                    .role(Role.TUTOR)
+                    .qualification("Tiến sĩ Toán học")
+                    .experienceYears(8)
+                    .hourlyRate(250000.0)
+                    .build());
+        }
 
-        Parent parent = (currentUser instanceof Parent) ? (Parent) currentUser : 
-            Parent.builder().email("phuhuynhmau@giasuhq.com").fullName("Phụ huynh Trần Đức Anh").password("123456").role(Role.PARENT).build();
+        Student student;
+        if (currentUser != null && currentUser.getRole() == Role.STUDENT) {
+            student = studentRepository.findById(currentUser.getId()).orElseGet(() -> {
+                return studentRepository.save(Student.builder()
+                        .id(currentUser.getId())
+                        .email(currentUser.getEmail())
+                        .fullName(currentUser.getFullName())
+                        .password(currentUser.getPassword())
+                        .role(Role.STUDENT)
+                        .gradeLevel("Lớp 12")
+                        .build());
+            });
+        } else {
+            student = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
+                User baseStudent = userRepository.save(User.builder()
+                        .email("hocsinhmau@giasuhq.com")
+                        .fullName("Học sinh Mẫu")
+                        .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
+                        .role(Role.STUDENT)
+                        .build());
+                return studentRepository.save(Student.builder()
+                        .id(baseStudent.getId())
+                        .email(baseStudent.getEmail())
+                        .fullName(baseStudent.getFullName())
+                        .password(baseStudent.getPassword())
+                        .role(Role.STUDENT)
+                        .gradeLevel("Lớp 12")
+                        .build());
+            });
+        }
+
+        Parent parent = null;
+        if (currentUser != null && currentUser.getRole() == Role.PARENT) {
+            parent = parentRepository.findById(currentUser.getId()).orElse(null);
+        } else if (student.getParent() != null) {
+            parent = student.getParent();
+        }
 
         TutoringClass demoClass = TutoringClass.builder()
                 .className("Lớp Toán 12 - Ôn thi ĐHQG")

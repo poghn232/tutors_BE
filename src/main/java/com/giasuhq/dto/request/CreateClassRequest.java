@@ -1,7 +1,6 @@
 package com.giasuhq.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,14 +15,22 @@ public class CreateClassRequest {
     @NotBlank(message = "Tên lớp học không được để trống")
     private String className;
 
-    @NotNull(message = "ID môn học không được để trống")
     private Long subjectId;
+    private String subjectName;
 
     private Long tutorId;
+    private String tutorName;
+
     private Long studentId;
     private Long parentId;
 
     private String studentName;
     private String studentEmail;
     private String scheduleDescription;
+
+    private String date;
+    private String time;
+    private Double amount;
+    private String orderCode;
+    private String paymentMethod;
 }

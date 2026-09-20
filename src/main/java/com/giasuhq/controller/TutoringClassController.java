@@ -37,7 +37,13 @@ public class TutoringClassController {
 
     @PostMapping
     public ApiResponse<ClassResponse> createClass(@Valid @RequestBody CreateClassRequest request, Principal principal) {
-        User user = getUserByPrincipal(principal);
+        User user = null;
+        if (principal != null) {
+            String email = principal.getName();
+            user = userRepository.findByEmailIgnoreCase(email)
+                    .or(() -> userRepository.findByEmail(email))
+                    .orElse(null);
+        }
         ClassResponse response = tutoringClassService.createClass(request, user);
         return ApiResponse.success("Tạo lớp học mới thành công!", response);
     }
