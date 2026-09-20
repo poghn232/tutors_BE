@@ -1,20 +1,32 @@
 package com.giasuhq.controller;
 
+import com.giasuhq.config.VNPayConfig;
+import com.giasuhq.dto.request.VNPayPaymentRequest;
 import com.giasuhq.dto.response.ApiResponse;
 import com.giasuhq.dto.response.PaymentResponse;
+import com.giasuhq.dto.response.VNPayPaymentResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/payments")
+@RequiredArgsConstructor
 public class PaymentController {
+
+    private final VNPayConfig vnPayConfig;
 
     @GetMapping
     public ApiResponse<PaymentResponse> getPaymentOverview() {
         PaymentResponse response = PaymentResponse.builder()
-                .status("API_GATEWAY_PENDING")
-                .gatewayNotice("⚡ Chức năng Thanh toán trực tuyến qua cổng API (VNPay / ZaloPay / MoMo) đang chuẩn bị kết nối. Hiện tại hệ thống tự động theo dõi danh sách học phí.")
+                .status("ACTIVE")
+                .gatewayNotice("Cổng thanh toán VNPay Sandbox đã kết nối thành công. Học viên có thể thanh toán học phí và nâng cấp VIP trực tuyến.")
                 .totalPendingFee(1200000.0)
                 .totalPaidFee(2400000.0)
                 .invoices(Arrays.asList(
@@ -40,8 +52,185 @@ public class PaymentController {
         return ApiResponse.success("Lấy thông tin học phí thành công", response);
     }
 
-    @PostMapping("/checkout")
-    public ApiResponse<String> processCheckout(@RequestParam Long invoiceId) {
-        return ApiResponse.success("Yêu cầu thanh toán cho hóa đơn #" + invoiceId + " đã được ghi nhận. Cổng API VNPay sẽ xử lý khi khởi chạy chính thức.", null);
+    /**
+     * Create VNPay Payment URL
+     */
+    @PostMapping("/vnpay/create-payment")
+    public ApiResponse<VNPayPaymentResponse> createVNPayPayment(
+            @RequestBody VNPayPaymentRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        long amount = request.getAmount();
+        if (amount <= 0) {
+            amount = 199000; // Default amount if not specified
+        }
+
+        String orderInfo = request.getOrderInfo();
+        if (orderInfo == null || orderInfo.trim().isEmpty()) {
+            orderInfo = "Thanh toan hoc phi Tutora - Don hang #" + System.currentTimeMillis();
+        }
+
+        String vnp_Version = "2.1.0";
+        String vnp_Command = "pay";
+        String vnp_TxnRef = VNPayConfig.getRandomNumber(8);
+        String vnp_IpAddr = VNPayConfig.getIpAddress(httpServletRequest);
+        String vnp_TmnCode = vnPayConfig.getTmnCode();
+
+        // VNPay amount is in VND multiplied by 100
+        long vnpAmount = amount * 100;
+
+        Map<String, String> vnp_Params = new HashMap<>();
+        vnp_Params.put("vnp_Version", vnp_Version);
+        vnp_Params.put("vnp_Command", vnp_Command);
+        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
+        vnp_Params.put("vnp_Amount", String.valueOf(vnpAmount));
+        vnp_Params.put("vnp_CurrCode", "VND");
+
+        if (request.getBankCode() != null && !request.getBankCode().isEmpty()) {
+            vnp_Params.put("vnp_BankCode", request.getBankCode());
+        }
+
+        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
+        vnp_Params.put("vnp_OrderInfo", orderInfo);
+        vnp_Params.put("vnp_OrderType", request.getOrderType() != null ? request.getOrderType() : "other");
+        vnp_Params.put("vnp_Locale", "vn");
+        vnp_Params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
+
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        formatter.setTimeZone(TimeZone.getTimeZone("Etc/GMT+7"));
+        String vnp_CreateDate = formatter.format(cld.getTime());
+        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+
+        cld.add(Calendar.MINUTE, 15);
+        String vnp_ExpireDate = formatter.format(cld.getTime());
+        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
+
+        // Build query string and hash
+        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        StringBuilder query = new StringBuilder();
+        Iterator<String> itr = fieldNames.iterator();
+        while (itr.hasNext()) {
+            String fieldName = itr.next();
+            String fieldValue = vnp_Params.get(fieldName);
+            if (fieldValue != null && !fieldValue.isEmpty()) {
+                // Build hash data
+                hashData.append(fieldName);
+                hashData.append('=');
+                hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                // Build query
+                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII));
+                query.append('=');
+                query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                if (itr.hasNext()) {
+                    query.append('&');
+                    hashData.append('&');
+                }
+            }
+        }
+
+        String queryUrl = query.toString();
+        String vnp_SecureHash = VNPayConfig.hmacSHA512(vnPayConfig.getHashSecret(), hashData.toString());
+        String paymentUrl = vnPayConfig.getPayUrl() + "?" + queryUrl + "&vnp_SecureHash=" + vnp_SecureHash;
+
+        VNPayPaymentResponse response = VNPayPaymentResponse.builder()
+                .paymentUrl(paymentUrl)
+                .txnRef(vnp_TxnRef)
+                .amount(amount)
+                .orderInfo(orderInfo)
+                .success(true)
+                .message("Tạo URL thanh toán VNPay thành công.")
+                .build();
+
+        return ApiResponse.success("Tạo URL thanh toán thành công", response);
+    }
+
+    /**
+     * Handle Callback from VNPay (after user completes payment on VNPay portal)
+     */
+    @GetMapping("/vnpay/callback")
+    public ApiResponse<VNPayPaymentResponse> vnpayCallback(@RequestParam Map<String, String> queryParams) {
+        String vnp_SecureHash = queryParams.get("vnp_SecureHash");
+        Map<String, String> fields = new HashMap<>(queryParams);
+        fields.remove("vnp_SecureHashType");
+        fields.remove("vnp_SecureHash");
+
+        // Verify checksum
+        String signValue = VNPayConfig.hashAllFields(fields, vnPayConfig.getHashSecret());
+        boolean isValidSignature = signValue.equalsIgnoreCase(vnp_SecureHash);
+
+        String responseCode = queryParams.get("vnp_ResponseCode");
+        String txnRef = queryParams.get("vnp_TxnRef");
+        String transactionNo = queryParams.get("vnp_TransactionNo");
+        String bankCode = queryParams.get("vnp_BankCode");
+        String payDate = queryParams.get("vnp_PayDate");
+        String orderInfo = queryParams.get("vnp_OrderInfo");
+        long amount = 0;
+        try {
+            amount = Long.parseLong(queryParams.get("vnp_Amount")) / 100;
+        } catch (Exception ignored) {}
+
+        boolean isSuccess = isValidSignature && "00".equals(responseCode);
+        String message;
+
+        if (!isValidSignature) {
+            message = "Chữ ký số VNPay không hợp lệ (Dữ liệu có thể bị can thiệp).";
+        } else if ("00".equals(responseCode)) {
+            message = "Giao dịch thanh toán thành công qua VNPay!";
+        } else if ("24".equals(responseCode)) {
+            message = "Giao dịch đã bị khách hàng hủy.";
+        } else if ("51".equals(responseCode)) {
+            message = "Tài khoản của quý khách không đủ số dư để thực hiện giao dịch.";
+        } else {
+            message = "Giao dịch không thành công. Mã lỗi VNPay: " + responseCode;
+        }
+
+        VNPayPaymentResponse response = VNPayPaymentResponse.builder()
+                .success(isSuccess)
+                .txnRef(txnRef)
+                .amount(amount)
+                .responseCode(responseCode)
+                .transactionNo(transactionNo)
+                .bankCode(bankCode)
+                .payDate(payDate)
+                .orderInfo(orderInfo)
+                .message(message)
+                .build();
+
+        return ApiResponse.success(isSuccess ? "Thanh toán thành công" : "Thanh toán thất bại", response);
+    }
+
+    /**
+     * IPN Webhook for Server-to-Server asynchronous confirmation
+     */
+    @GetMapping("/vnpay/ipn")
+    public ResponseEntity<Map<String, String>> vnpayIpn(@RequestParam Map<String, String> queryParams) {
+        Map<String, String> result = new HashMap<>();
+        String vnp_SecureHash = queryParams.get("vnp_SecureHash");
+        Map<String, String> fields = new HashMap<>(queryParams);
+        fields.remove("vnp_SecureHashType");
+        fields.remove("vnp_SecureHash");
+
+        String signValue = VNPayConfig.hashAllFields(fields, vnPayConfig.getHashSecret());
+        if (!signValue.equalsIgnoreCase(vnp_SecureHash)) {
+            result.put("RspCode", "97");
+            result.put("Message", "Invalid Checksum");
+            return ResponseEntity.ok(result);
+        }
+
+        String responseCode = queryParams.get("vnp_ResponseCode");
+        if ("00".equals(responseCode)) {
+            // Confirm invoice or activate VIP subscription in database
+            result.put("RspCode", "00");
+            result.put("Message", "Confirm Success");
+        } else {
+            result.put("RspCode", "01");
+            result.put("Message", "Order failed or cancelled");
+        }
+
+        return ResponseEntity.ok(result);
     }
 }
