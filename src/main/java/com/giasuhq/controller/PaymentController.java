@@ -1,6 +1,7 @@
 package com.giasuhq.controller;
 
 import com.giasuhq.config.VNPayConfig;
+import com.giasuhq.dto.request.SepayWebhookRequest;
 import com.giasuhq.dto.request.VNPayPaymentRequest;
 import com.giasuhq.dto.response.ApiResponse;
 import com.giasuhq.dto.response.PaymentResponse;
@@ -14,6 +15,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -21,6 +25,7 @@ import java.util.*;
 public class PaymentController {
 
     private final VNPayConfig vnPayConfig;
+    private static final Map<String, SepayWebhookRequest> confirmedSepayOrders = new ConcurrentHashMap<>();
 
     @GetMapping
     public ApiResponse<PaymentResponse> getPaymentOverview() {
@@ -237,5 +242,61 @@ public class PaymentController {
         }
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Webhook endpoint called by SePay when a real bank transfer arrives
+     */
+    @PostMapping("/sepay/webhook")
+    public ResponseEntity<Map<String, Object>> handleSepayWebhook(
+            @RequestBody SepayWebhookRequest payload,
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
+        Map<String, Object> result = new HashMap<>();
+        if (payload == null) {
+            result.put("success", false);
+            result.put("message", "Payload is empty");
+            return ResponseEntity.badRequest().body(result);
+        }
+
+        String content = payload.getContent() != null ? payload.getContent() : "";
+        if (payload.getCode() != null && !payload.getCode().isEmpty()) {
+            confirmedSepayOrders.put(payload.getCode().toUpperCase().trim(), payload);
+        }
+        if (payload.getId() != null) {
+            confirmedSepayOrders.put(String.valueOf(payload.getId()), payload);
+        }
+
+        // Search for order code inside content (e.g. TUTORA1024 or VIP1024)
+        Pattern pattern = Pattern.compile("(?i)(TUTORA[0-9A-Z]+|VIP[0-9A-Z]+|[0-9]{6,10})");
+        Matcher matcher = pattern.matcher(content);
+        while (matcher.find()) {
+            String extractedCode = matcher.group(1).toUpperCase().trim();
+            confirmedSepayOrders.put(extractedCode, payload);
+        }
+
+        result.put("success", true);
+        result.put("message", "Sepay webhook processed successfully");
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Polling endpoint for frontend to check if a specific SePay transaction has arrived
+     */
+    @GetMapping("/sepay/check-status")
+    public ApiResponse<Map<String, Object>> checkSepayStatus(@RequestParam String orderCode) {
+        Map<String, Object> data = new HashMap<>();
+        String key = orderCode.toUpperCase().trim();
+        boolean isPaid = confirmedSepayOrders.containsKey(key);
+        data.put("paid", isPaid);
+        if (isPaid) {
+            SepayWebhookRequest tx = confirmedSepayOrders.get(key);
+            data.put("amount", tx.getTransferAmount());
+            data.put("transactionDate", tx.getTransactionDate());
+            data.put("referenceCode", tx.getReferenceCode());
+            data.put("gateway", tx.getGateway());
+            data.put("accountNumber", tx.getAccountNumber());
+        }
+        return ApiResponse.success("Kiểm tra trạng thái SePay", data);
     }
 }
