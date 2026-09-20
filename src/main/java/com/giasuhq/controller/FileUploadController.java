@@ -33,13 +33,17 @@ public class FileUploadController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadFile(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadFile(@RequestParam(value = "file", required = false) MultipartFile file) {
+        if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Vui lòng chọn tệp tin hợp lệ."));
         }
 
         try {
-            String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
+            if (!Files.exists(this.uploadDir)) {
+                Files.createDirectories(this.uploadDir);
+            }
+            String rawName = file.getOriginalFilename();
+            String originalFilename = (rawName != null && !rawName.trim().isEmpty()) ? StringUtils.cleanPath(rawName) : "file_" + System.currentTimeMillis();
             // Sanitize against path traversal
             if (originalFilename.contains("..")) {
                 return ResponseEntity.badRequest().body(ApiResponse.error("Tên tệp không hợp lệ."));
@@ -70,10 +74,19 @@ public class FileUploadController {
     }
 
     @PostMapping("/upload-multiple")
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> uploadMultipleFiles(@RequestParam("files") MultipartFile[] files) {
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> uploadMultipleFiles(@RequestParam(value = "files", required = false) MultipartFile[] files) {
+        if (files == null || files.length == 0) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Vui lòng chọn ít nhất một tệp tin."));
+        }
+        try {
+            if (!Files.exists(this.uploadDir)) {
+                Files.createDirectories(this.uploadDir);
+            }
+        } catch (Exception ignored) {}
+
         List<Map<String, Object>> results = new ArrayList<>();
         for (MultipartFile file : files) {
-            if (!file.isEmpty()) {
+            if (file != null && !file.isEmpty()) {
                 try {
                     String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
                     if (originalFilename.contains("..")) continue;
