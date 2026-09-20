@@ -35,8 +35,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("Email '" + request.getEmail() + "' đã được sử dụng trong hệ thống.");
+        String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
+        if (userRepository.existsByEmailNormalized(email) || userRepository.existsByEmailIgnoreCase(email)) {
+            throw new IllegalArgumentException("Email '" + email + "' đã được sử dụng trong hệ thống.");
         }
 
         String encodedPassword = passwordEncoder.encode(request.getPassword());
@@ -45,7 +46,7 @@ public class AuthServiceImpl implements AuthService {
         User user;
         if (role == Role.TUTOR) {
             user = Tutor.builder()
-                    .email(request.getEmail())
+                    .email(email)
                     .password(encodedPassword)
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
@@ -53,7 +54,7 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         } else if (role == Role.PARENT) {
             user = Parent.builder()
-                    .email(request.getEmail())
+                    .email(email)
                     .password(encodedPassword)
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
@@ -61,7 +62,7 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         } else if (role == Role.STUDENT) {
             user = Student.builder()
-                    .email(request.getEmail())
+                    .email(email)
                     .password(encodedPassword)
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
@@ -69,7 +70,7 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         } else {
             user = User.builder()
-                    .email(request.getEmail())
+                    .email(email)
                     .password(encodedPassword)
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
@@ -88,14 +89,31 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         String email = request.getEmail() != null ? request.getEmail().trim().toLowerCase() : "";
-        User user = userRepository.findByEmailIgnoreCase(email)
+        User user = userRepository.findByEmailNormalized(email)
+                .or(() -> userRepository.findByEmailIgnoreCase(email))
                 .or(() -> userRepository.findByEmail(email))
                 .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu không chính xác."));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        boolean matches = passwordEncoder.matches(request.getPassword(), user.getPassword());
+
+        // Self-healing: if password was stored as plain-text (legacy dev data)
+        // or dummy seed placeholder "$2a$10$e.g123456hash" with default '123456'
+        if (!matches) {
+            if (user.getPassword() != null && user.getPassword().equals(request.getPassword())) {
+                user.setPassword(passwordEncoder.encode(request.getPassword()));
+                user = userRepository.save(user);
+                matches = true;
+            } else if ("$2a$10$e.g123456hash".equals(user.getPassword()) && "123456".equals(request.getPassword())) {
+                user.setPassword(passwordEncoder.encode("123456"));
+                user = userRepository.save(user);
+                matches = true;
+            }
+        }
+
+        if (!matches) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không chính xác.");
         }
 
@@ -111,8 +129,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser(String email) {
-        User user = userRepository.findByEmailIgnoreCase(email)
-                .or(() -> userRepository.findByEmail(email))
+        String normalizedEmail = email != null ? email.trim().toLowerCase() : "";
+        User user = userRepository.findByEmailNormalized(normalizedEmail)
+                .or(() -> userRepository.findByEmailIgnoreCase(normalizedEmail))
+                .or(() -> userRepository.findByEmail(normalizedEmail))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin người dùng với email: " + email));
         return mapToUserResponse(user);
     }
@@ -138,7 +158,9 @@ public class AuthServiceImpl implements AuthService {
         }
 
         String email = userInfo.getEmail().trim().toLowerCase();
-        Optional<User> existingUserOpt = userRepository.findByEmail(email);
+        Optional<User> existingUserOpt = userRepository.findByEmailNormalized(email)
+                .or(() -> userRepository.findByEmailIgnoreCase(email))
+                .or(() -> userRepository.findByEmail(email));
 
         User user;
         if (existingUserOpt.isPresent()) {
