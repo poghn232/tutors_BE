@@ -51,12 +51,18 @@ public class SubjectServiceImpl implements SubjectService {
         if (subjectRepository.count() == 0) {
             List<Subject> defaults = Arrays.asList(
                     Subject.builder().code("MATH").name("Toán học").description("Chương trình Toán THCS & THPT, ôn thi ĐHQG / THPT QG").build(),
+                    Subject.builder().code("LIT").name("Ngữ văn").description("Ngữ văn & Đọc hiểu tác phẩm, Luyện viết văn phân tích").build(),
+                    Subject.builder().code("ENG").name("Tiếng Anh").description("Tiếng Anh Phổ thông, IELTS, TOEIC, Giao tiếp").build(),
+                    Subject.builder().code("IELTS").name("Luyện thi IELTS / TOEIC").description("Luyện thi chứng chỉ quốc tế IELTS 6.5-8.5, TOEIC 800+").build(),
                     Subject.builder().code("PHYS").name("Vật lý").description("Chương trình Vật lý Phổ thông & Luyện thi Đại học").build(),
                     Subject.builder().code("CHEM").name("Hóa học").description("Hóa học Đại số, Hữu cơ & Vô cơ các khối").build(),
-                    Subject.builder().code("ENG").name("Tiếng Anh").description("Tiếng Anh Phổ thông, IELTS, TOEIC, Giao tiếp").build(),
-                    Subject.builder().code("LIT").name("Ngữ văn").description("Ngữ văn & Đọc hiểu tác phẩm, Luyện viết văn phân tích").build(),
                     Subject.builder().code("BIO").name("Sinh học").description("Sinh học THPT & Ôn thi các khối B").build(),
-                    Subject.builder().code("INF").name("Tin học / Lập trình").description("Tin học ứng dụng, Lập trình Python, C++, Web").build()
+                    Subject.builder().code("HIST").name("Lịch sử").description("Lịch sử Việt Nam & Thế giới, ôn thi THPT Quốc gia").build(),
+                    Subject.builder().code("GEOG").name("Địa lý").description("Địa lý tự nhiên, kinh tế - xã hội, Atlat").build(),
+                    Subject.builder().code("INF").name("Tin học / Lập trình").description("Tin học ứng dụng, Lập trình Python, C++, Web, Scratch").build(),
+                    Subject.builder().code("JPN").name("Tiếng Nhật").description("Tiếng Nhật giao tiếp, JLPT N5 đến N2").build(),
+                    Subject.builder().code("CHN").name("Tiếng Trung").description("Tiếng Trung giao tiếp, luyện thi HSK 1 đến 6").build(),
+                    Subject.builder().code("KOR").name("Tiếng Hàn").description("Tiếng Hàn sơ cấp, trung cấp, luyện thi TOPIK").build()
             );
             subjectRepository.saveAll(defaults);
         }
