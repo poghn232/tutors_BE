@@ -14,15 +14,22 @@ import com.giasuhq.exception.ResourceNotFoundException;
 import com.giasuhq.repository.UserRepository;
 import com.giasuhq.security.JwtTokenProvider;
 import com.giasuhq.service.AuthService;
+import com.giasuhq.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -30,6 +37,23 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
+
+    private static class OtpEntry {
+        final String otp;
+        final LocalDateTime expiryTime;
+
+        OtpEntry(String otp, LocalDateTime expiryTime) {
+            this.otp = otp;
+            this.expiryTime = expiryTime;
+        }
+
+        boolean isExpired() {
+            return LocalDateTime.now().isAfter(expiryTime);
+        }
+    }
+
+    private final Map<String, OtpEntry> otpStorage = new ConcurrentHashMap<>();
 
     @Override
     @Transactional
@@ -243,5 +267,69 @@ public class AuthServiceImpl implements AuthService {
             case ADMIN: return "Quản trị viên";
             default: return role.name();
         }
+    }
+
+    @Override
+    public void sendForgotPasswordOtp(String email) {
+        String normEmail = email != null ? email.trim().toLowerCase() : "";
+        if (normEmail.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email hợp lệ.");
+        }
+
+        userRepository.findByEmailNormalized(normEmail)
+                .or(() -> userRepository.findByEmailIgnoreCase(normEmail))
+                .or(() -> userRepository.findByEmail(normEmail))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản liên kết với email: " + normEmail));
+
+        int randomPin = new SecureRandom().nextInt(900000) + 100000;
+        String otp = String.valueOf(randomPin);
+
+        otpStorage.put(normEmail, new OtpEntry(otp, LocalDateTime.now().plusMinutes(10)));
+        log.info("Generated forgot-password OTP for {}: [{}]", normEmail, otp);
+
+        emailService.sendOtpEmail(normEmail, otp);
+    }
+
+    @Override
+    public void verifyOtp(String email, String otp) {
+        String normEmail = email != null ? email.trim().toLowerCase() : "";
+        if (normEmail.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng cung cấp email.");
+        }
+        if (otp == null || otp.trim().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập mã OTP xác thực.");
+        }
+
+        OtpEntry entry = otpStorage.get(normEmail);
+        if (entry == null || entry.isExpired()) {
+            throw new IllegalArgumentException("Mã OTP không hợp lệ hoặc đã hết hạn (hiệu lực 10 phút). Vui lòng yêu cầu mã mới.");
+        }
+
+        if (!entry.otp.equals(otp.trim())) {
+            throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String email, String otp, String newPassword) {
+        verifyOtp(email, otp);
+
+        String normEmail = email.trim().toLowerCase();
+        User user = userRepository.findByEmailNormalized(normEmail)
+                .or(() -> userRepository.findByEmailIgnoreCase(normEmail))
+                .or(() -> userRepository.findByEmail(normEmail))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản với email: " + normEmail));
+
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự.");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword.trim()));
+        userRepository.save(user);
+
+        // Invalidate OTP after successful reset
+        otpStorage.remove(normEmail);
+        log.info("Password successfully reset for user: {}", normEmail);
     }
 }

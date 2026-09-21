@@ -1,8 +1,6 @@
 package com.giasuhq.controller;
 
-import com.giasuhq.dto.request.GoogleLoginRequest;
-import com.giasuhq.dto.request.LoginRequest;
-import com.giasuhq.dto.request.RegisterRequest;
+import com.giasuhq.dto.request.*;
 import com.giasuhq.dto.response.ApiResponse;
 import com.giasuhq.dto.response.AuthResponse;
 import com.giasuhq.dto.response.UserResponse;
@@ -36,6 +34,24 @@ public class AuthController {
     public ApiResponse<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         AuthResponse response = authService.loginWithGoogle(request);
         return ApiResponse.success("Đăng nhập bằng Google thành công!", response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.sendForgotPasswordOtp(request.getEmail());
+        return ApiResponse.success("Mã xác minh OTP đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư!", null);
+    }
+
+    @PostMapping("/verify-otp")
+    public ApiResponse<Void> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        authService.verifyOtp(request.getEmail(), request.getOtp());
+        return ApiResponse.success("Xác thực mã OTP thành công! Bạn có thể đặt mật khẩu mới.", null);
+    }
+
+    @PostMapping("/reset-password")
+    public ApiResponse<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
+        return ApiResponse.success("Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.", null);
     }
 
     @GetMapping("/me")
