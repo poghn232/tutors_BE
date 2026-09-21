@@ -2,6 +2,7 @@ package com.giasuhq.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -39,6 +40,16 @@ public class TutoringClass {
     @Column(name = "schedule_description")
     private String scheduleDescription;
 
+    @Column(name = "connection_fee", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal connectionFee = BigDecimal.ZERO;
+
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ClassStatus status;
@@ -50,7 +61,10 @@ public class TutoringClass {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         if (this.status == null) {
-            this.status = ClassStatus.ACTIVE;
+            this.status = ClassStatus.PENDING_TUTOR_APPROVAL;
+        }
+        if (this.connectionFee == null) {
+            this.connectionFee = BigDecimal.ZERO;
         }
     }
 }

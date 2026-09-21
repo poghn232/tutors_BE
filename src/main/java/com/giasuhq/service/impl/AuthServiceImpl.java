@@ -116,6 +116,9 @@ public class AuthServiceImpl implements AuthService {
         if (!matches) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không chính xác.");
         }
+        if (request.getRole() != null && user.getRole() != request.getRole()) {
+            throw new IllegalArgumentException("Tài khoản này có vai trò là " + getRoleDisplayName(user.getRole()) + ", không thể đăng nhập ở cổng " + getRoleDisplayName(request.getRole()) + ".");
+        }
 
         String token = jwtTokenProvider.generateToken(user.getEmail());
 
@@ -165,6 +168,9 @@ public class AuthServiceImpl implements AuthService {
         User user;
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
+            if (request.getRole() != null && user.getRole() != request.getRole()) {
+                throw new IllegalArgumentException("Tài khoản này có vai trò là " + getRoleDisplayName(user.getRole()) + ", không thể đăng nhập ở cổng " + getRoleDisplayName(request.getRole()) + ".");
+            }
             if ((user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) && userInfo.getPicture() != null) {
                 user.setAvatarUrl(userInfo.getPicture());
                 user = userRepository.save(user);
@@ -222,7 +228,19 @@ public class AuthServiceImpl implements AuthService {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
                 .isVip(user.getIsVip() != null && user.getIsVip())
+                .balance(user.getBalance())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private String getRoleDisplayName(Role role) {
+        if (role == null) return "Chưa xác định";
+        switch (role) {
+            case TUTOR: return "Gia sư";
+            case PARENT: return "Phụ huynh";
+            case STUDENT: return "Học sinh";
+            case ADMIN: return "Quản trị viên";
+            default: return role.name();
+        }
     }
 }

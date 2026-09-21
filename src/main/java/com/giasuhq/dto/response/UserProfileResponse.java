@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -20,6 +21,7 @@ public class UserProfileResponse {
     private String avatarUrl;
     private Role role;
     private Boolean isVip;
+    private BigDecimal balance;
     private LocalDateTime createdAt;
 
     // Chi tiết Gia sư

@@ -37,15 +37,30 @@ public class TutoringClassController {
 
     @PostMapping
     public ApiResponse<ClassResponse> createClass(@Valid @RequestBody CreateClassRequest request, Principal principal) {
-        User user = null;
-        if (principal != null) {
-            String email = principal.getName();
-            user = userRepository.findByEmailIgnoreCase(email)
-                    .or(() -> userRepository.findByEmail(email))
-                    .orElse(null);
-        }
+        User user = getUserByPrincipal(principal);
         ClassResponse response = tutoringClassService.createClass(request, user);
-        return ApiResponse.success("Tạo lớp học mới thành công!", response);
+        return ApiResponse.success("Đã gửi yêu cầu kết nối. Vui lòng chờ gia sư chấp nhận lịch học.", response);
+    }
+
+    @PostMapping("/{id}/accept")
+    public ApiResponse<ClassResponse> acceptClass(@PathVariable Long id, Principal principal) {
+        User user = getUserByPrincipal(principal);
+        ClassResponse response = tutoringClassService.acceptClass(id, user);
+        return ApiResponse.success("Gia sư đã chấp nhận lịch học. Phụ huynh/học sinh có thể thanh toán phí kết nối.", response);
+    }
+
+    @PostMapping("/{id}/decline")
+    public ApiResponse<ClassResponse> declineClass(@PathVariable Long id, Principal principal) {
+        User user = getUserByPrincipal(principal);
+        ClassResponse response = tutoringClassService.declineClass(id, user);
+        return ApiResponse.success("Gia sư đã từ chối yêu cầu kết nối.", response);
+    }
+
+    @PostMapping("/{id}/pay-connection-fee")
+    public ApiResponse<ClassResponse> payConnectionFee(@PathVariable Long id, Principal principal) {
+        User user = getUserByPrincipal(principal);
+        ClassResponse response = tutoringClassService.payConnectionFee(id, user);
+        return ApiResponse.success("Thanh toán phí kết nối thành công. Lớp học đã được kích hoạt.", response);
     }
 
     private User getUserByPrincipal(Principal principal) {

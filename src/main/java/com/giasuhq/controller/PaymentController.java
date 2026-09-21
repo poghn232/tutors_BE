@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,28 +35,35 @@ public class PaymentController {
     private static final Map<String, SepayWebhookRequest> confirmedSepayOrders = new ConcurrentHashMap<>();
 
     @GetMapping
-    public ApiResponse<PaymentResponse> getPaymentOverview() {
+    public ApiResponse<PaymentResponse> getPaymentOverview(Principal principal) {
+        BigDecimal balance = BigDecimal.ZERO;
+        if (principal != null) {
+            balance = userRepository.findByEmailIgnoreCase(principal.getName())
+                    .or(() -> userRepository.findByEmail(principal.getName()))
+                    .map(User::getBalance)
+                    .orElse(BigDecimal.ZERO);
+        }
         PaymentResponse response = PaymentResponse.builder()
                 .status("ACTIVE")
-                .gatewayNotice("Cổng thanh toán VNPay Sandbox đã kết nối thành công. Học viên có thể thanh toán học phí và nâng cấp VIP trực tuyến.")
-                .totalPendingFee(1200000.0)
-                .totalPaidFee(2400000.0)
+                .gatewayNotice("Hệ thống chỉ thu phí kết nối. Số dư hiện tại: " + balance + "đ. Không quản lý học phí hoặc rút tiền cho gia sư.")
+                .totalPendingFee(0.0)
+                .totalPaidFee(balance.doubleValue())
                 .invoices(Arrays.asList(
                         PaymentResponse.InvoiceItem.builder()
                                 .id(101L)
-                                .className("Lớp Toán 12 - Ôn thi ĐHQG")
-                                .period("Tháng 09/2026 (4 buổi)")
-                                .amount(1200000.0)
-                                .status("PENDING")
-                                .dueDate("15/09/2026")
+                                .className("Số dư ví kết nối")
+                                .period("Dùng để thanh toán phí kết nối sau khi gia sư chấp nhận lịch")
+                                .amount(balance.doubleValue())
+                                .status("BALANCE")
+                                .dueDate("-")
                                 .build(),
                         PaymentResponse.InvoiceItem.builder()
                                 .id(100L)
-                                .className("Lớp Tiếng Anh 12 - IELTS 7.0")
-                                .period("Tháng 08/2026 (8 buổi)")
-                                .amount(2400000.0)
-                                .status("PAID")
-                                .dueDate("01/09/2026")
+                                .className("Phí kết nối mặc định")
+                                .period("Thu một lần cho mỗi yêu cầu được gia sư chấp nhận")
+                                .amount(50000.0)
+                                .status("INFO")
+                                .dueDate("-")
                                 .build()
                 ))
                 .build();
@@ -343,5 +351,26 @@ public class PaymentController {
         data.put("email", user.getEmail());
         data.put("fullName", user.getFullName());
         return ApiResponse.success("Đặc quyền VIP đã được kích hoạt thành công vào cơ sở dữ liệu!", data);
+    }
+
+    @PostMapping("/deposit")
+    public ApiResponse<Map<String, Object>> depositBalance(@RequestBody Map<String, Object> payload, Principal principal) {
+        if (principal == null) {
+            return ApiResponse.error("Vui lòng đăng nhập để nạp số dư kết nối.");
+        }
+        Number amountNumber = payload.get("amount") instanceof Number ? (Number) payload.get("amount") : null;
+        if (amountNumber == null || amountNumber.doubleValue() <= 0) {
+            return ApiResponse.error("Số tiền nạp không hợp lệ.");
+        }
+        User user = userRepository.findByEmailIgnoreCase(principal.getName())
+                .or(() -> userRepository.findByEmail(principal.getName()))
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy người dùng."));
+        BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+        user.setBalance(currentBalance.add(BigDecimal.valueOf(amountNumber.doubleValue())));
+        userRepository.save(user);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("balance", user.getBalance());
+        return ApiResponse.success("Nạp số dư kết nối thành công.", data);
     }
 }

@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -38,11 +39,11 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         Role role = currentUser.getRole();
 
         if (role == Role.TUTOR) {
-            classes = tutoringClassRepository.findByTutorId(currentUser.getId());
+            classes = tutoringClassRepository.findByTutorIdOrderByCreatedAtDesc(currentUser.getId());
         } else if (role == Role.PARENT) {
-            classes = tutoringClassRepository.findByParentId(currentUser.getId());
+            classes = tutoringClassRepository.findByParentIdOrderByCreatedAtDesc(currentUser.getId());
         } else if (role == Role.STUDENT) {
-            classes = tutoringClassRepository.findByStudentId(currentUser.getId());
+            classes = tutoringClassRepository.findByStudentIdOrderByCreatedAtDesc(currentUser.getId());
         } else {
             classes = tutoringClassRepository.findAll();
         }
@@ -55,6 +56,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     public ClassResponse getClassById(Long id, User currentUser) {
         TutoringClass tutoringClass = tutoringClassRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
+        ensureCanView(tutoringClass, currentUser);
         return mapToResponse(tutoringClass);
     }
 
@@ -62,6 +64,12 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     @Transactional
     public ClassResponse createClass(CreateClassRequest request, User currentUser) {
         log.info("Creating class request: {}, currentUser: {}", request, currentUser != null ? currentUser.getEmail() : "anonymous");
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Vui lòng đăng nhập để tạo yêu cầu kết nối gia sư.");
+        }
+        if (currentUser.getRole() != Role.PARENT && currentUser.getRole() != Role.STUDENT) {
+            throw new IllegalArgumentException("Chỉ phụ huynh hoặc học sinh được tạo yêu cầu kết nối gia sư.");
+        }
 
         // 1. Resolve Subject (Môn học)
         Subject subject = null;
@@ -84,43 +92,15 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             }
         }
         if (subject == null) {
-            subject = subjectRepository.findAll().stream().findFirst().orElseGet(() ->
-                subjectRepository.save(Subject.builder()
-                        .code("MATH")
-                        .name("Toán Học")
-                        .description("Môn Toán THPT")
-                        .build())
-            );
+            throw new IllegalArgumentException("Vui lòng chọn môn học hợp lệ cho yêu cầu kết nối.");
         }
 
         // 2. Resolve Tutor (Gia sư)
-        Tutor tutor = null;
-        if (currentUser != null && currentUser.getRole() == Role.TUTOR) {
-            tutor = tutorRepository.findById(currentUser.getId()).orElse(null);
+        if (request.getTutorId() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn gia sư cần kết nối.");
         }
-        if (tutor == null && request.getTutorId() != null) {
-            tutor = tutorRepository.findById(request.getTutorId()).orElse(null);
-        }
-        if (tutor == null) {
-            tutor = tutorRepository.findAll().stream().findFirst().orElseGet(() -> {
-                User baseUser = userRepository.save(User.builder()
-                        .email("tutor.default@giasuhq.com")
-                        .fullName("TS. Hoàng Thiên Ứng")
-                        .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
-                        .role(Role.TUTOR)
-                        .build());
-                return tutorRepository.save(Tutor.builder()
-                        .id(baseUser.getId())
-                        .email(baseUser.getEmail())
-                        .fullName(baseUser.getFullName())
-                        .password(baseUser.getPassword())
-                        .role(Role.TUTOR)
-                        .qualification("Tiến sĩ Toán học")
-                        .experienceYears(8)
-                        .hourlyRate(250000.0)
-                        .build());
-            });
-        }
+        Tutor tutor = tutorRepository.findById(request.getTutorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư với ID: " + request.getTutorId()));
 
         // 3. Resolve Student (Học sinh)
         Parent parent = null;
@@ -178,22 +158,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             student = studentRepository.findById(request.getStudentId()).orElse(null);
         }
         if (student == null) {
-            student = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
-                User baseStudent = userRepository.save(User.builder()
-                        .email("student." + System.currentTimeMillis() + "@giasuhq.com")
-                        .fullName(request.getStudentName() != null && !request.getStudentName().isBlank() ? request.getStudentName() : "Học sinh Mới")
-                        .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
-                        .role(Role.STUDENT)
-                        .build());
-                return studentRepository.save(Student.builder()
-                        .id(baseStudent.getId())
-                        .email(baseStudent.getEmail())
-                        .fullName(baseStudent.getFullName())
-                        .password(baseStudent.getPassword())
-                        .role(Role.STUDENT)
-                        .gradeLevel("Lớp 12")
-                        .build());
-            });
+            throw new IllegalArgumentException("Không xác định được học sinh cho yêu cầu kết nối.");
         }
 
         // 4. Resolve Parent (Phụ huynh)
@@ -229,26 +194,127 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .student(student)
                 .parent(parent)
                 .scheduleDescription(scheduleDesc)
-                .status(ClassStatus.ACTIVE)
+                .connectionFee(resolveConnectionFee(request))
+                .status(ClassStatus.PENDING_TUTOR_APPROVAL)
                 .build();
 
         TutoringClass savedClass = tutoringClassRepository.save(newClass);
+        log.info("Class request created successfully with ID: {}", savedClass.getId());
+        return mapToResponse(savedClass);
+    }
 
-        // 5. Automatically create the first lesson in the lessons table
-        LocalDateTime startTime = parseStartTime(request.getDate(), request.getTime());
-        LocalDateTime endTime = startTime.plusHours(1);
+    @Override
+    @Transactional
+    public ClassResponse acceptClass(Long id, User currentUser) {
+        TutoringClass tutoringClass = getClassForTutorAction(id, currentUser);
+        if (tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL) {
+            throw new IllegalArgumentException("Chỉ yêu cầu đang chờ gia sư xác nhận mới được chấp nhận.");
+        }
+        tutoringClass.setStatus(ClassStatus.PENDING_PAYMENT);
+        tutoringClass.setApprovedAt(LocalDateTime.now());
+        return mapToResponse(tutoringClassRepository.save(tutoringClass));
+    }
 
+    @Override
+    @Transactional
+    public ClassResponse declineClass(Long id, User currentUser) {
+        TutoringClass tutoringClass = getClassForTutorAction(id, currentUser);
+        if (tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL) {
+            throw new IllegalArgumentException("Chỉ yêu cầu đang chờ gia sư xác nhận mới được từ chối.");
+        }
+        tutoringClass.setStatus(ClassStatus.DECLINED);
+        return mapToResponse(tutoringClassRepository.save(tutoringClass));
+    }
+
+    @Override
+    @Transactional
+    public ClassResponse payConnectionFee(Long id, User currentUser) {
+        TutoringClass tutoringClass = tutoringClassRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
+        ensureOwner(tutoringClass, currentUser);
+        if (tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT) {
+            throw new IllegalArgumentException("Chỉ thanh toán được sau khi gia sư đã chấp nhận lịch học.");
+        }
+        BigDecimal fee = tutoringClass.getConnectionFee() != null ? tutoringClass.getConnectionFee() : BigDecimal.ZERO;
+        BigDecimal balance = currentUser.getBalance() != null ? currentUser.getBalance() : BigDecimal.ZERO;
+        if (balance.compareTo(fee) < 0) {
+            throw new IllegalArgumentException("Số dư không đủ để thanh toán phí kết nối. Vui lòng nạp thêm.");
+        }
+        currentUser.setBalance(balance.subtract(fee));
+        userRepository.save(currentUser);
+
+        tutoringClass.setStatus(ClassStatus.ACTIVE);
+        tutoringClass.setPaidAt(LocalDateTime.now());
+        TutoringClass savedClass = tutoringClassRepository.save(tutoringClass);
+
+        String datePart = null;
+        String timePart = null;
+        String scheduleDesc = savedClass.getScheduleDescription();
+        if (scheduleDesc != null && scheduleDesc.contains(" lúc ")) {
+            String[] parts = scheduleDesc.split(" lúc ");
+            datePart = parts[0].trim();
+            if (parts.length > 1) {
+                timePart = parts[1].trim();
+            }
+        } else {
+            datePart = scheduleDesc;
+        }
+
+        LocalDateTime startTime = parseStartTime(datePart, timePart);
         Lesson initialLesson = Lesson.builder()
                 .tutoringClass(savedClass)
                 .title("Buổi 1: " + savedClass.getClassName())
                 .startTime(startTime)
-                .endTime(endTime)
+                .endTime(startTime.plusHours(1))
                 .status(LessonStatus.SCHEDULED)
                 .build();
         lessonRepository.save(initialLesson);
 
-        log.info("Class created successfully with ID: {} and Lesson ID: {}", savedClass.getId(), initialLesson.getId());
         return mapToResponse(savedClass);
+    }
+
+    private BigDecimal resolveConnectionFee(CreateClassRequest request) {
+        if (request.getAmount() != null && request.getAmount() > 0) {
+            return BigDecimal.valueOf(request.getAmount());
+        }
+        return BigDecimal.valueOf(50000);
+    }
+
+    private TutoringClass getClassForTutorAction(Long id, User currentUser) {
+        TutoringClass tutoringClass = tutoringClassRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
+        if (currentUser == null || currentUser.getRole() != Role.TUTOR
+                || tutoringClass.getTutor() == null
+                || !currentUser.getId().equals(tutoringClass.getTutor().getId())) {
+            throw new IllegalArgumentException("Chỉ gia sư được gán với lớp này mới có quyền xử lý yêu cầu.");
+        }
+        return tutoringClass;
+    }
+
+    private void ensureCanView(TutoringClass tutoringClass, User currentUser) {
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
+        }
+        if (currentUser.getRole() == Role.ADMIN) {
+            return;
+        }
+        boolean canView = (tutoringClass.getTutor() != null && currentUser.getId().equals(tutoringClass.getTutor().getId()))
+                || (tutoringClass.getStudent() != null && currentUser.getId().equals(tutoringClass.getStudent().getId()))
+                || (tutoringClass.getParent() != null && currentUser.getId().equals(tutoringClass.getParent().getId()));
+        if (!canView) {
+            throw new IllegalArgumentException("Bạn không có quyền xem lớp học này.");
+        }
+    }
+
+    private void ensureOwner(TutoringClass tutoringClass, User currentUser) {
+        if (currentUser == null || (currentUser.getRole() != Role.PARENT && currentUser.getRole() != Role.STUDENT)) {
+            throw new IllegalArgumentException("Chỉ phụ huynh hoặc học sinh tạo yêu cầu mới được thanh toán phí kết nối.");
+        }
+        boolean owner = (tutoringClass.getStudent() != null && currentUser.getId().equals(tutoringClass.getStudent().getId()))
+                || (tutoringClass.getParent() != null && currentUser.getId().equals(tutoringClass.getParent().getId()));
+        if (!owner) {
+            throw new IllegalArgumentException("Bạn không có quyền thanh toán lớp học này.");
+        }
     }
 
     private LocalDateTime parseStartTime(String dateStr, String timeStr) {
@@ -313,6 +379,9 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .subjectId(tc.getSubject() != null ? tc.getSubject().getId() : null)
                 .subjectName(tc.getSubject() != null ? tc.getSubject().getName() : "Môn học")
                 .scheduleDescription(tc.getScheduleDescription())
+                .connectionFee(tc.getConnectionFee())
+                .approvedAt(tc.getApprovedAt())
+                .paidAt(tc.getPaidAt())
                 .status(tc.getStatus())
                 .createdAt(tc.getCreatedAt())
                 .build();

@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -24,6 +25,9 @@ public class ClassResponse {
     private Long subjectId;
     private String subjectName;
     private String scheduleDescription;
+    private BigDecimal connectionFee;
+    private LocalDateTime approvedAt;
+    private LocalDateTime paidAt;
     private ClassStatus status;
     private LocalDateTime createdAt;
 }

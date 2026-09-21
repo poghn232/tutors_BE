@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url VARCHAR(500),
     role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'STUDENT', 'TUTOR', 'ADMIN')),
     is_vip BOOLEAN DEFAULT FALSE,
+    balance DECIMAL(15,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -72,7 +73,10 @@ CREATE TABLE IF NOT EXISTS tutoring_classes (
     parent_id BIGINT,
     subject_id BIGINT NOT NULL,
     schedule_description VARCHAR(255),    -- Ví dụ: "Thứ 2 - Thứ 4 (18:00 - 20:00)"
-    status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'COMPLETED', 'PAUSED')),
+    connection_fee DECIMAL(15,2) NOT NULL DEFAULT 0,
+    approved_at TIMESTAMP NULL,
+    paid_at TIMESTAMP NULL,
+    status VARCHAR(30) DEFAULT 'PENDING_TUTOR_APPROVAL' CHECK (status IN ('PENDING_TUTOR_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'DECLINED', 'COMPLETED', 'PAUSED', 'CANCELLED')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_classes_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id),
     CONSTRAINT fk_classes_student FOREIGN KEY (student_id) REFERENCES students(user_id),

@@ -9,4 +9,7 @@ public interface TutoringClassService {
     List<ClassResponse> getClassesForUser(User currentUser);
     ClassResponse getClassById(Long id, User currentUser);
     ClassResponse createClass(CreateClassRequest request, User currentUser);
+    ClassResponse acceptClass(Long id, User currentUser);
+    ClassResponse declineClass(Long id, User currentUser);
+    ClassResponse payConnectionFee(Long id, User currentUser);
 }

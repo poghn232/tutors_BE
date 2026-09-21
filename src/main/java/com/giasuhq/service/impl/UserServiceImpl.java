@@ -72,6 +72,7 @@ public class UserServiceImpl implements UserService {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole())
                 .isVip(user.getIsVip() != null && user.getIsVip())
+                .balance(user.getBalance())
                 .createdAt(user.getCreatedAt());
 
         if (user instanceof Tutor) {
