@@ -168,7 +168,13 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 : new BigDecimal("5000");
 
         ClassStatus initialStatus = ClassStatus.ACTIVE;
-        if (currentUser.getRole() == Role.PARENT && request.getOrderCode() != null && !request.getOrderCode().isBlank() && request.getStatus() == null) {
+        if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            try {
+                initialStatus = ClassStatus.valueOf(request.getStatus().trim().toUpperCase());
+            } catch (Exception e) {
+                initialStatus = ClassStatus.ACTIVE;
+            }
+        } else if (currentUser.getRole() == Role.PARENT && request.getOrderCode() != null && !request.getOrderCode().isBlank()) {
             initialStatus = ClassStatus.PENDING_TUTOR_APPROVAL;
         }
 

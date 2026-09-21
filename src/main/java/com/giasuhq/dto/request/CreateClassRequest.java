@@ -33,4 +33,5 @@ public class CreateClassRequest {
     private Double amount;
     private String orderCode;
     private String paymentMethod;
+    private String status;
 }
