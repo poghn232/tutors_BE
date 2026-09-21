@@ -65,10 +65,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     public ClassResponse createClass(CreateClassRequest request, User currentUser) {
         log.info("Creating class request: {}, currentUser: {}", request, currentUser != null ? currentUser.getEmail() : "anonymous");
         if (currentUser == null) {
-            throw new IllegalArgumentException("Vui lòng đăng nhập để tạo yêu cầu kết nối gia sư.");
-        }
-        if (currentUser.getRole() != Role.PARENT && currentUser.getRole() != Role.ADMIN) {
-            throw new IllegalArgumentException("Chỉ phụ huynh hoặc quản trị viên được tạo yêu cầu kết nối gia sư.");
+            throw new IllegalArgumentException("Vui lòng đăng nhập để tạo lớp học hoặc thiết lập lịch rảnh.");
         }
 
         // 1. Resolve Subject
@@ -93,16 +90,40 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             }
         }
         if (subject == null) {
-            throw new IllegalArgumentException("Vui lòng chọn môn học hợp lệ cho yêu cầu kết nối.");
+            // Fallback to first available subject (MATH) if not specified
+            subject = subjectRepository.findAll().stream().findFirst().orElse(null);
+        }
+        if (subject == null) {
+            throw new IllegalArgumentException("Vui lòng chọn môn học hợp lệ cho lớp học.");
         }
         log.info("Resolved subject: id={}, name={}", subject.getId(), subject.getName());
 
         // 2. Resolve Tutor
-        if (request.getTutorId() == null) {
-            throw new IllegalArgumentException("Vui lòng chọn gia sư cần kết nối.");
+        Tutor tutor = null;
+        if (currentUser.getRole() == Role.TUTOR) {
+            tutor = tutorRepository.findById(currentUser.getId()).orElseGet(() ->
+                    tutorRepository.save(Tutor.builder()
+                            .id(currentUser.getId())
+                            .email(currentUser.getEmail())
+                            .fullName(currentUser.getFullName())
+                            .phone(currentUser.getPhone())
+                            .role(Role.TUTOR)
+                            .build())
+            );
+        } else {
+            Long tutorId = request.getTutorId();
+            if (tutorId == null) {
+                tutor = tutorRepository.findAll().stream().findFirst().orElse(null);
+            } else {
+                tutor = tutorRepository.findById(tutorId).orElse(null);
+            }
+            if (tutor == null) {
+                tutor = tutorRepository.findAll().stream().findFirst().orElse(null);
+            }
         }
-        Tutor tutor = tutorRepository.findById(request.getTutorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư với ID: " + request.getTutorId()));
+        if (tutor == null) {
+            throw new IllegalArgumentException("Không tìm thấy gia sư hợp lệ trong hệ thống.");
+        }
 
         // 3. Resolve Parent
         Parent parent = null;
@@ -119,10 +140,6 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             );
         } else if (request.getParentId() != null) {
             parent = parentRepository.findById(request.getParentId()).orElse(null);
-        }
-
-        if (parent == null && currentUser.getRole() == Role.ADMIN) {
-            parent = parentRepository.findAll().stream().findFirst().orElse(null);
         }
 
         // 4. Resolve Student information
@@ -150,8 +167,13 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 ? BigDecimal.valueOf(request.getAmount())
                 : new BigDecimal("5000");
 
+        ClassStatus initialStatus = ClassStatus.ACTIVE;
+        if (currentUser.getRole() == Role.PARENT && request.getOrderCode() != null && !request.getOrderCode().isBlank() && request.getStatus() == null) {
+            initialStatus = ClassStatus.PENDING_TUTOR_APPROVAL;
+        }
+
         TutoringClass tutoringClass = TutoringClass.builder()
-                .className(request.getClassName())
+                .className(request.getClassName() != null && !request.getClassName().isBlank() ? request.getClassName() : ("Lớp " + subject.getName() + " cùng " + tutor.getFullName()))
                 .tutor(tutor)
                 .studentName(studentName)
                 .studentGradeLevel(studentGradeLevel)
@@ -160,7 +182,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .subject(subject)
                 .scheduleDescription(scheduleDesc)
                 .connectionFee(connectionFee)
-                .status(ClassStatus.PENDING_TUTOR_APPROVAL)
+                .status(initialStatus)
                 .build();
 
         TutoringClass savedClass = tutoringClassRepository.save(tutoringClass);

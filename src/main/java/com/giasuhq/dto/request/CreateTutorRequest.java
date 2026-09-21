@@ -8,6 +8,8 @@ public record CreateTutorRequest(
         @NotBlank String fullName,
         @NotBlank String subject,
         @Email String email,
+        String phone,
+        String facebookUrl,
         @PositiveOrZero double hourlyRate
 ) {
 }

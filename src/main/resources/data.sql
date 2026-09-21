@@ -14,13 +14,13 @@ INSERT IGNORE INTO users (id, email, password, full_name, phone, role, is_vip, b
 (8, 'tutor.nam@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Đặng Hoàng Nam', '0906666777', 'TUTOR', true, 0);
 
 -- 2. Insert Inherited Role Data for Tutors
-INSERT IGNORE INTO tutors (user_id, bio, qualification, experience_years, hourly_rate) VALUES
-(1, 'Tiến sĩ Toán học ứng dụng tại ĐH Quốc gia Hà Nội. Tôi giúp học sinh hiểu toán học qua các ứng dụng thực tế. 8+ năm kinh nghiệm từ THCS đến đại học.', 'Tiến sĩ Toán học', 8, 250000),
-(4, 'Tiến sĩ Y khoa tại ĐH Y Hà Nội. Chuyên luyện thi y dược và khoa học tự nhiên. 96% học sinh đậu kỳ thi quốc gia.', 'Tiến sĩ Y khoa · ĐH Y Hà Nội', 10, 300000),
-(5, 'Cựu giảng viên đại học với niềm đam mê làm cho khoa học trở nên thú vị. Sử dụng thí nghiệm thực hành và ví dụ thực tế.', 'Tiến sĩ · ĐH Stanford (Hoa Kỳ)', 12, 280000),
-(6, 'Thạc sĩ Giáo dục tại ĐH Ngoại Thương. Cựu giáo viên THPT, chuyên gia luyện thi đại học với tỉ lệ học sinh đậu 95%.', 'Thạc sĩ · ĐH Ngoại Thương', 6, 200000),
-(7, 'Người Pháp gốc Việt, Thạc sĩ Lịch sử Nghệ thuật tại Sorbonne. Dạy ngôn ngữ qua văn hóa - nghệ thuật, điện ảnh và văn học.', 'Thạc sĩ · ĐH Sorbonne', 7, 180000),
-(8, 'Thạc sĩ KHMT ĐH Bách Khoa TP.HCM. Chuyên gia luyện thi Olympic Tin học và Toán ứng dụng.', 'Thạc sĩ Khoa học Máy tính', 5, 220000);
+INSERT IGNORE INTO tutors (user_id, bio, qualification, experience_years, hourly_rate, facebook_url) VALUES
+(1, 'Tiến sĩ Toán học ứng dụng tại ĐH Quốc gia Hà Nội. Tôi giúp học sinh hiểu toán học qua các ứng dụng thực tế. 8+ năm kinh nghiệm từ THCS đến đại học.', 'Tiến sĩ Toán học', 8, 250000, 'https://facebook.com/giasu.hoangthienung'),
+(4, 'Tiến sĩ Y khoa tại ĐH Y Hà Nội. Chuyên luyện thi y dược và khoa học tự nhiên. 96% học sinh đậu kỳ thi quốc gia.', 'Tiến sĩ Y khoa · ĐH Y Hà Nội', 10, 300000, 'https://facebook.com/giasu.phamthilan'),
+(5, 'Cựu giảng viên đại học với niềm đam mê làm cho khoa học trở nên thú vị. Sử dụng thí nghiệm thực hành và ví dụ thực tế.', 'Tiến sĩ · ĐH Stanford (Hoa Kỳ)', 12, 280000, 'https://facebook.com/giasu.lethithu'),
+(6, 'Thạc sĩ Giáo dục tại ĐH Ngoại Thương. Cựu giáo viên THPT, chuyên gia luyện thi đại học với tỉ lệ học sinh đậu 95%.', 'Thạc sĩ · ĐH Ngoại Thương', 6, 200000, 'https://facebook.com/giasu.tranminhduc'),
+(7, 'Người Pháp gốc Việt, Thạc sĩ Lịch sử Nghệ thuật tại Sorbonne. Dạy ngôn ngữ qua văn hóa - nghệ thuật, điện ảnh và văn học.', 'Thạc sĩ · ĐH Sorbonne', 7, 180000, 'https://facebook.com/giasu.vuthimai'),
+(8, 'Thạc sĩ KHMT ĐH Bách Khoa TP.HCM. Chuyên gia luyện thi Olympic Tin học và Toán ứng dụng.', 'Thạc sĩ Khoa học Máy tính', 5, 220000, 'https://facebook.com/giasu.danghoangnam');
 
 -- Insert Parents
 INSERT IGNORE INTO parents (user_id, address, emergency_contact, student_name, student_grade_level, student_school_name) VALUES

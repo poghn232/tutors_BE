@@ -5,6 +5,10 @@ public record TutorResponse(
         String fullName,
         String subject,
         String email,
-        double hourlyRate
+        String phone,
+        String facebookUrl,
+        String bio,
+        double hourlyRate,
+        Integer experienceYears
 ) {
 }

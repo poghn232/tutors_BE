@@ -14,6 +14,8 @@ public class TutorMapper {
                 .id(id)
                 .fullName(request.fullName())
                 .email(request.email())
+                .phone(request.phone())
+                .facebookUrl(request.facebookUrl())
                 .password("default_password")
                 .role(Role.TUTOR)
                 .hourlyRate(request.hourlyRate())
@@ -26,7 +28,11 @@ public class TutorMapper {
                 tutor.getFullName(),
                 tutor.getQualification() != null ? tutor.getQualification() : "Chưa cập nhật",
                 tutor.getEmail(),
-                tutor.getHourlyRate() != null ? tutor.getHourlyRate() : 0.0
+                tutor.getPhone() != null ? tutor.getPhone() : "",
+                tutor.getFacebookUrl() != null ? tutor.getFacebookUrl() : "",
+                tutor.getBio() != null ? tutor.getBio() : "",
+                tutor.getHourlyRate() != null ? tutor.getHourlyRate() : 0.0,
+                tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0
         );
     }
 }
