@@ -174,7 +174,6 @@ public class LessonServiceImpl implements LessonService {
                     .role(Role.TUTOR)
                     .qualification("Tiến sĩ Toán học")
                     .experienceYears(8)
-                    .hourlyRate(250000.0)
                     .build());
         }
 
