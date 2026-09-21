@@ -10,4 +10,8 @@ public interface AuthService {
     AuthResponse login(LoginRequest request);
     UserResponse getCurrentUser(String email);
     AuthResponse loginWithGoogle(com.giasuhq.dto.request.GoogleLoginRequest request);
+
+    void sendForgotPasswordOtp(String email);
+    void verifyOtp(String email, String otp);
+    void resetPassword(String email, String otp, String newPassword);
 }
