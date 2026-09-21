@@ -14,7 +14,12 @@ ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_school_name VARCHAR(255) AF
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'PARENT';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_vip BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS balance DECIMAL(15,2) NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
 ALTER TABLE tutors ADD COLUMN IF NOT EXISTS facebook_url VARCHAR(500);
+ALTER TABLE tutors ADD COLUMN IF NOT EXISTS verification_status VARCHAR(30) DEFAULT 'APPROVED';
+ALTER TABLE tutors ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+ALTER TABLE tutors ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP NULL;
+ALTER TABLE tutors ADD COLUMN IF NOT EXISTS certificates_json LONGTEXT;
 DROP TABLE IF EXISTS students;
 
 -- 1. Base Users Table (Chứa thông tin đăng nhập & định danh chung)
@@ -28,6 +33,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'TUTOR', 'ADMIN')),
     is_vip BOOLEAN DEFAULT FALSE,
     balance DECIMAL(15,2) NOT NULL DEFAULT 0,
+    email_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_users_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -39,6 +45,10 @@ CREATE TABLE IF NOT EXISTS tutors (
     qualification VARCHAR(255),           -- Trình độ (Đại học, Thạc sĩ...)
     experience_years INT DEFAULT 0,       -- Số năm kinh nghiệm
     facebook_url VARCHAR(500),            -- Link Facebook cá nhân gia sư
+    verification_status VARCHAR(30) DEFAULT 'PENDING',
+    rejection_reason TEXT,
+    verified_at TIMESTAMP NULL,
+    certificates_json LONGTEXT,
     CONSTRAINT fk_tutors_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

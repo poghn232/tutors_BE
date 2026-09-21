@@ -3,6 +3,7 @@ package com.giasuhq.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "tutors")
@@ -24,4 +25,18 @@ public class Tutor extends User {
 
     @Column(name = "facebook_url")
     private String facebookUrl;
+
+    @Column(name = "verification_status", nullable = false)
+    @Builder.Default
+    private String verificationStatus = "PENDING"; // PENDING, APPROVED, REJECTED
+
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
+
+    @Column(name = "certificates_json", columnDefinition = "LONGTEXT")
+    private String certificatesJson;
 }
+

@@ -33,6 +33,11 @@ public class TutorController {
         return ApiResponse.success(tutorService.findAll());
     }
 
+    @GetMapping("/admin/all")
+    public ApiResponse<List<TutorResponse>> getAdminTutors() {
+        return ApiResponse.success("Lấy danh sách gia sư cho Admin thành công", tutorService.findAllForAdmin());
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<TutorResponse> getTutor(@PathVariable Long id) {
         return ApiResponse.success(tutorService.findById(id));
@@ -42,5 +47,14 @@ public class TutorController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<TutorResponse> createTutor(@Valid @RequestBody CreateTutorRequest request) {
         return ApiResponse.success(tutorService.create(request));
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/{id}/verification")
+    public ApiResponse<TutorResponse> updateVerification(
+            @PathVariable Long id,
+            @Valid @RequestBody com.giasuhq.dto.request.TutorVerificationRequest request
+    ) {
+        TutorResponse response = tutorService.updateVerificationStatus(id, request.getStatus(), request.getReason());
+        return ApiResponse.success("Cập nhật trạng thái xác thực gia sư thành công!", response);
     }
 }

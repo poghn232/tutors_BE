@@ -43,6 +43,8 @@ public class UserServiceImpl implements UserService {
                 tutor.setQualification(request.getQualification());
             if (request.getExperienceYears() != null)
                 tutor.setExperienceYears(request.getExperienceYears());
+            if (request.getCertificatesJson() != null)
+                tutor.setCertificatesJson(request.getCertificatesJson());
         } else if (currentUser instanceof Parent) {
             Parent parent = (Parent) currentUser;
             if (request.getAddress() != null)
@@ -71,13 +73,18 @@ public class UserServiceImpl implements UserService {
                 .role(user.getRole())
                 .isVip(user.getIsVip() != null && user.getIsVip())
                 .balance(user.getBalance())
+                .emailVerified(user.getEmailVerified())
                 .createdAt(user.getCreatedAt());
 
         if (user instanceof Tutor) {
             Tutor t = (Tutor) user;
             builder.bio(t.getBio())
                     .qualification(t.getQualification())
-                    .experienceYears(t.getExperienceYears());
+                    .experienceYears(t.getExperienceYears())
+                    .verificationStatus(t.getVerificationStatus() != null ? t.getVerificationStatus() : "PENDING")
+                    .rejectionReason(t.getRejectionReason())
+                    .verifiedAt(t.getVerifiedAt())
+                    .certificatesJson(t.getCertificatesJson());
         } else if (user instanceof Parent) {
             Parent p = (Parent) user;
             builder.address(p.getAddress())

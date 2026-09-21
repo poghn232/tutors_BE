@@ -18,6 +18,12 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @PostMapping("/send-register-otp")
+    public ApiResponse<Void> sendRegisterOtp(@Valid @RequestBody SendRegisterOtpRequest request) {
+        authService.sendRegisterOtp(request.getEmail(), request.getFullName());
+        return ApiResponse.success("Mã xác thực kích hoạt tài khoản đã được gửi về Gmail của bạn. Vui lòng kiểm tra hộp thư!", null);
+    }
+
     @PostMapping("/register")
     public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = authService.register(request);

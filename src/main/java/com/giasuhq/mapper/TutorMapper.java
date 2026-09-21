@@ -28,9 +28,15 @@ public class TutorMapper {
                 tutor.getQualification() != null ? tutor.getQualification() : "Chưa cập nhật",
                 tutor.getEmail(),
                 tutor.getPhone() != null ? tutor.getPhone() : "",
+                tutor.getAvatarUrl(),
                 tutor.getFacebookUrl() != null ? tutor.getFacebookUrl() : "",
                 tutor.getBio() != null ? tutor.getBio() : "",
-                tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0
+                tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0,
+                tutor.getVerificationStatus() != null ? tutor.getVerificationStatus() : "PENDING",
+                tutor.getRejectionReason(),
+                tutor.getVerifiedAt(),
+                tutor.getCertificatesJson(),
+                tutor.getCreatedAt()
         );
     }
 }

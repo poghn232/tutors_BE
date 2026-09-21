@@ -43,6 +43,10 @@ public class User implements Principal {
     @Builder.Default
     private Boolean isVip = false;
 
+    @Column(name = "email_verified", nullable = false)
+    @Builder.Default
+    private Boolean emailVerified = false;
+
     @Column(nullable = false, precision = 15, scale = 2)
     @Builder.Default
     private BigDecimal balance = BigDecimal.ZERO;

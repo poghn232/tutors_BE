@@ -61,7 +61,8 @@ public class FileUploadController {
             fileData.put("fileName", storedFileName);
             fileData.put("size", file.getSize());
             fileData.put("contentType", file.getContentType());
-            fileData.put("fileUrl", "/api/files/download/" + storedFileName);
+            fileData.put("fileUrl", "/api/files/view/" + storedFileName);
+            fileData.put("downloadUrl", "/api/files/download/" + storedFileName);
 
             return ResponseEntity.ok(ApiResponse.success("Tải tệp lên thành công.", fileData));
         } catch (IOException ex) {
@@ -88,13 +89,49 @@ public class FileUploadController {
                     fileData.put("fileName", storedFileName);
                     fileData.put("size", file.getSize());
                     fileData.put("contentType", file.getContentType());
-                    fileData.put("fileUrl", "/api/files/download/" + storedFileName);
+                    fileData.put("fileUrl", "/api/files/view/" + storedFileName);
+                    fileData.put("downloadUrl", "/api/files/download/" + storedFileName);
                     results.add(fileData);
                 } catch (IOException ignored) {
                 }
             }
         }
         return ResponseEntity.ok(ApiResponse.success("Tải các tệp lên thành công.", results));
+    }
+
+    @GetMapping("/view/{fileName:.+}")
+    public ResponseEntity<Resource> viewFile(@PathVariable String fileName) {
+        try {
+            Path filePath = this.uploadDir.resolve(fileName).normalize();
+            if (!filePath.startsWith(this.uploadDir)) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            Resource resource = new UrlResource(filePath.toUri());
+            if (resource.exists() && resource.isReadable()) {
+                String contentType = "application/octet-stream";
+                try {
+                    String probe = Files.probeContentType(filePath);
+                    if (probe != null) contentType = probe;
+                } catch (Exception ignored) {}
+
+                String displayFilename = fileName;
+                int underscoreIdx = fileName.indexOf('_');
+                if (underscoreIdx > 0 && underscoreIdx < fileName.length() - 1) {
+                    displayFilename = fileName.substring(underscoreIdx + 1);
+                }
+
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + displayFilename + "\"")
+                        .header(HttpHeaders.CACHE_CONTROL, "max-age=86400, public")
+                        .body(resource);
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (MalformedURLException ex) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     @GetMapping("/download/{fileName:.+}")

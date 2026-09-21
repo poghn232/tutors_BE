@@ -22,5 +22,6 @@ public class UserResponse {
     private Role role;
     private Boolean isVip;
     private BigDecimal balance;
+    private Boolean emailVerified;
     private LocalDateTime createdAt;
 }

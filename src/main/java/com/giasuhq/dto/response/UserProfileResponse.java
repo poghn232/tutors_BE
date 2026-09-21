@@ -24,10 +24,16 @@ public class UserProfileResponse {
     private BigDecimal balance;
     private LocalDateTime createdAt;
 
+    private Boolean emailVerified;
+
     // Chi tiết Gia sư
     private String bio;
     private String qualification;
     private Integer experienceYears;
+    private String verificationStatus;
+    private String rejectionReason;
+    private LocalDateTime verifiedAt;
+    private String certificatesJson;
 
     // Chi tiết Phụ huynh / Con em
     private String address;

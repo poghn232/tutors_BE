@@ -31,4 +31,6 @@ public class RegisterRequest {
 
     @NotNull(message = "Vui lòng chọn vai trò (Gia sư, Phụ huynh hoặc Học sinh)")
     private Role role;
+
+    private String otp;
 }

@@ -63,6 +63,20 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email '" + email + "' đã được sử dụng trong hệ thống.");
         }
 
+        // Verify registration OTP
+        String otp = request.getOtp();
+        if (otp == null || otp.trim().isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập mã OTP xác thực được gửi về Gmail của bạn.");
+        }
+        OtpEntry entry = otpStorage.get("REGISTER:" + email);
+        if (entry == null || entry.isExpired()) {
+            throw new IllegalArgumentException("Mã OTP không hợp lệ hoặc đã hết hạn (hiệu lực 10 phút). Vui lòng yêu cầu mã mới.");
+        }
+        if (!entry.otp.equals(otp.trim())) {
+            throw new IllegalArgumentException("Mã OTP không chính xác. Vui lòng kiểm tra lại hộp thư.");
+        }
+        otpStorage.remove("REGISTER:" + email);
+
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         Role role = request.getRole() != null ? request.getRole() : Role.TUTOR;
 
@@ -74,6 +88,8 @@ public class AuthServiceImpl implements AuthService {
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
                     .role(Role.TUTOR)
+                    .emailVerified(true)
+                    .verificationStatus("PENDING")
                     .build();
         } else if (role == Role.PARENT) {
             user = Parent.builder()
@@ -82,6 +98,7 @@ public class AuthServiceImpl implements AuthService {
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
                     .role(Role.PARENT)
+                    .emailVerified(true)
                     .build();
         } else {
             user = User.builder()
@@ -90,6 +107,7 @@ public class AuthServiceImpl implements AuthService {
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
                     .role(role != null ? role : Role.PARENT)
+                    .emailVerified(true)
                     .build();
         }
 
@@ -201,6 +219,8 @@ public class AuthServiceImpl implements AuthService {
                         .fullName(fullName)
                         .avatarUrl(userInfo.getPicture())
                         .role(Role.TUTOR)
+                        .emailVerified(true)
+                        .verificationStatus("PENDING")
                         .build();
             } else {
                 user = Parent.builder()
@@ -209,6 +229,7 @@ public class AuthServiceImpl implements AuthService {
                         .fullName(fullName)
                         .avatarUrl(userInfo.getPicture())
                         .role(Role.PARENT)
+                        .emailVerified(true)
                         .build();
             }
             user = userRepository.save(user);
@@ -233,6 +254,7 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole())
                 .isVip(user.getIsVip() != null && user.getIsVip())
                 .balance(user.getBalance())
+                .emailVerified(user.getEmailVerified() != null ? user.getEmailVerified() : false)
                 .createdAt(user.getCreatedAt())
                 .build();
     }
@@ -267,6 +289,26 @@ public class AuthServiceImpl implements AuthService {
             case ADMIN: return "Quản trị viên";
             default: return role.name();
         }
+    }
+
+    @Override
+    public void sendRegisterOtp(String email, String fullName) {
+        String normEmail = email != null ? email.trim().toLowerCase() : "";
+        if (normEmail.isBlank() || !normEmail.contains("@")) {
+            throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email hợp lệ.");
+        }
+
+        if (userRepository.existsByEmailNormalized(normEmail) || userRepository.existsByEmailIgnoreCase(normEmail)) {
+            throw new IllegalArgumentException("Email '" + normEmail + "' đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.");
+        }
+
+        int randomPin = new SecureRandom().nextInt(900000) + 100000;
+        String otp = String.valueOf(randomPin);
+
+        otpStorage.put("REGISTER:" + normEmail, new OtpEntry(otp, LocalDateTime.now().plusMinutes(10)));
+        log.info("Generated registration OTP for {}: [{}]", normEmail, otp);
+
+        emailService.sendRegisterOtpEmail(normEmail, otp);
     }
 
     @Override
