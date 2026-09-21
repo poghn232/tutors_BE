@@ -3,6 +3,16 @@
 -- Compatible with Local & Remote MySQL Databases
 -- =========================================================
 
+-- Legacy migration: old student table is removed because child info now lives on parent profile.
+-- Run this block on existing databases to keep schema aligned with the new model.
+ALTER TABLE tutoring_classes DROP FOREIGN KEY IF EXISTS fk_classes_student;
+ALTER TABLE tutoring_classes DROP INDEX IF EXISTS idx_classes_student;
+ALTER TABLE tutoring_classes DROP COLUMN IF EXISTS student_id;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_name VARCHAR(255) AFTER emergency_contact;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_grade_level VARCHAR(50) AFTER student_name;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_school_name VARCHAR(255) AFTER student_grade_level;
+DROP TABLE IF EXISTS students;
+
 -- 1. Base Users Table (Chứa thông tin đăng nhập & định danh chung)
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

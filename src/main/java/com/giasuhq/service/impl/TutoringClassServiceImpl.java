@@ -83,9 +83,10 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                     .orElse(null);
         }
         if (subject == null && request.getClassName() != null) {
+            String className = request.getClassName().trim();
             for (Subject s : subjectRepository.findAll()) {
-                if (request.getClassName().toLowerCase().contains(s.getName().toLowerCase())
-                        || request.getClassName().toLowerCase().contains(s.getCode().toLowerCase())) {
+                if (className.toLowerCase().contains(s.getName().toLowerCase())
+                        || className.toLowerCase().contains(s.getCode().toLowerCase())) {
                     subject = s;
                     break;
                 }
@@ -94,6 +95,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         if (subject == null) {
             throw new IllegalArgumentException("Vui lòng chọn môn học hợp lệ cho yêu cầu kết nối.");
         }
+        log.info("Resolved subject: id={}, name={}", subject.getId(), subject.getName());
 
         // 2. Resolve Tutor
         if (request.getTutorId() == null) {
@@ -349,6 +351,58 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             throw new IllegalArgumentException("Không đọc được ngày giờ: date=" + dateStr + ", time=" + timeStr, e);
         }
     }
+ 
+    try {
+        // ----- Ngày -----
+        LocalDate date;
+        if (noDate) {
+            date = LocalDate.now().plusDays(1);
+        } else {
+            String d = dateStr.trim();
+            Matcher iso = ISO_DATE.matcher(d);
+            Matcher vn = VN_DATE.matcher(d);
+            if (iso.find()) {
+                date = LocalDate.of(Integer.parseInt(iso.group(1)),
+                        Integer.parseInt(iso.group(2)),
+                        Integer.parseInt(iso.group(3)));
+            } else if (vn.find()) { // find() nên tự bỏ qua tiền tố "T2 ", "CN "...
+                date = LocalDate.of(Integer.parseInt(vn.group(3)),
+                        Integer.parseInt(vn.group(2)),
+                        Integer.parseInt(vn.group(1)));
+            } else {
+                throw new IllegalArgumentException("Ngày không hợp lệ: " + dateStr);
+            }
+        }
+ 
+        // ----- Giờ -----
+        LocalTime time;
+        if (noTime) {
+            time = LocalTime.of(9, 0);
+        } else {
+            Matcher m = TIME.matcher(timeStr.trim());
+            if (!m.matches()) {
+                throw new IllegalArgumentException("Giờ không hợp lệ: " + timeStr);
+            }
+            int hour = Integer.parseInt(m.group(1));
+            int minute = m.group(2) != null ? Integer.parseInt(m.group(2)) : 0;
+            String period = m.group(3) != null ? m.group(3).toLowerCase() : null;
+ 
+            if ("ch".equals(period) || "pm".equals(period)) {
+                if (hour < 12) hour += 12;        // 2 CH -> 14, 12 CH -> 12
+            } else if ("sa".equals(period) || "am".equals(period)) {
+                if (hour == 12) hour = 0;         // 12 SA -> 0
+            }
+            time = LocalTime.of(hour, minute);
+        }
+ 
+        return LocalDateTime.of(date, time);
+ 
+    } catch (DateTimeException | NumberFormatException e) {
+        throw new IllegalArgumentException(
+                "Không đọc được ngày giờ: date=" + dateStr + ", time=" + timeStr, e);
+    }
+}
+
 
     private ClassResponse mapToResponse(TutoringClass tc) {
         return ClassResponse.builder()

@@ -51,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
                     .phone(request.getPhone())
                     .role(Role.TUTOR)
                     .build();
-        } else if (role == Role.PARENT) {
+        } else {
             user = Parent.builder()
                     .email(email)
                     .password(encodedPassword)
@@ -167,7 +167,7 @@ public class AuthServiceImpl implements AuthService {
                 user = userRepository.save(user);
             }
         } else {
-            Role role = request.getRole() != null ? request.getRole() : Role.STUDENT;
+            Role role = request.getRole() != null ? request.getRole() : Role.PARENT;
             String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
             String fullName = (userInfo.getName() != null && !userInfo.getName().isBlank())
                     ? userInfo.getName()
