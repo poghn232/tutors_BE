@@ -20,14 +20,17 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username:}")
     private String fromEmail;
 
+    @Value("${spring.mail.password:}")
+    private String mailPassword;
+
     @Override
     @Async
     public void sendOtpEmail(String toEmail, String otpCode) {
         log.info("Preparing OTP email for recipient: {}", toEmail);
 
-        if (mailSender == null || fromEmail == null || fromEmail.isBlank()) {
+        if (mailSender == null || fromEmail == null || fromEmail.isBlank() || mailPassword == null || mailPassword.isBlank()) {
             log.warn("=================================================");
-            log.warn("JavaMailSender is not fully configured.");
+            log.warn("JavaMailSender or MAIL_PASSWORD is not fully configured.");
             log.warn("FORGOT PASSWORD OTP for {}: [{}]", toEmail, otpCode);
             log.warn("=================================================");
             return;
