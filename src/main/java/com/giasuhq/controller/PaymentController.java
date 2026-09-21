@@ -1,11 +1,14 @@
 package com.giasuhq.controller;
 
 import com.giasuhq.config.VNPayConfig;
+import com.giasuhq.dto.request.CreateClassRequest;
 import com.giasuhq.dto.request.SepayWebhookRequest;
 import com.giasuhq.dto.request.VNPayPaymentRequest;
 import com.giasuhq.dto.response.ApiResponse;
+import com.giasuhq.dto.response.ClassResponse;
 import com.giasuhq.dto.response.PaymentResponse;
 import com.giasuhq.dto.response.VNPayPaymentResponse;
+import com.giasuhq.service.TutoringClassService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +34,9 @@ public class PaymentController {
     private final VNPayConfig vnPayConfig;
     private final UserRepository userRepository;
     private final UserService userService;
+    private final TutoringClassService tutoringClassService;
     private static final Map<String, SepayWebhookRequest> confirmedSepayOrders = new ConcurrentHashMap<>();
+    private static final Map<String, CreateClassRequest> pendingBookingRequests = new ConcurrentHashMap<>();
 
     @GetMapping
     public ApiResponse<PaymentResponse> getPaymentOverview() {
@@ -289,6 +294,19 @@ public class PaymentController {
     /**
      * Polling endpoint for frontend to check if a specific SePay transaction has arrived
      */
+    @PostMapping("/sepay/register-booking")
+    public ApiResponse<Map<String, Object>> registerPendingBooking(@RequestBody CreateClassRequest request) {
+        if (request == null || request.getOrderCode() == null || request.getOrderCode().isBlank()) {
+            return ApiResponse.error("Thiếu mã đơn hàng để lưu booking chờ thanh toán.");
+        }
+        String key = request.getOrderCode().toUpperCase().trim();
+        pendingBookingRequests.put(key, request);
+        Map<String, Object> data = new HashMap<>();
+        data.put("orderCode", key);
+        data.put("registered", true);
+        return ApiResponse.success("Đã lưu booking chờ thanh toán thành công.", data);
+    }
+
     @GetMapping("/sepay/check-status")
     public ApiResponse<Map<String, Object>> checkSepayStatus(
             @RequestParam String orderCode,
@@ -305,6 +323,34 @@ public class PaymentController {
             data.put("referenceCode", tx.getReferenceCode());
             data.put("gateway", tx.getGateway());
             data.put("accountNumber", tx.getAccountNumber());
+
+            CreateClassRequest bookingRequest = pendingBookingRequests.remove(key);
+            if (bookingRequest != null) {
+                try {
+                    User bookingUser = null;
+                    if (principal != null) {
+                        String email = principal.getName();
+                        bookingUser = userRepository.findByEmailIgnoreCase(email)
+                                .or(() -> userRepository.findByEmail(email))
+                                .orElse(null);
+                    }
+                    if (bookingUser == null && bookingRequest.getStudentId() != null) {
+                        bookingUser = userRepository.findById(bookingRequest.getStudentId()).orElse(null);
+                    }
+
+                    if (bookingUser != null || bookingRequest.getStudentId() == null) {
+                        ClassResponse created = tutoringClassService.createClass(bookingRequest, bookingUser);
+                        data.put("bookingCreated", true);
+                        data.put("classId", created != null ? created.getId() : null);
+                    } else {
+                        data.put("bookingCreated", false);
+                        data.put("message", "Không thể tạo lớp học vì người dùng không tồn tại.");
+                    }
+                } catch (Exception ex) {
+                    data.put("bookingCreated", false);
+                    data.put("message", "Lỗi khi lưu lớp học sau thanh toán: " + ex.getMessage());
+                }
+            }
 
             // Auto-activate VIP in database if user is logged in
             if (principal != null) {
