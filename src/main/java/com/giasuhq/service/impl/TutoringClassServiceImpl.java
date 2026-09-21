@@ -75,22 +75,17 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                     .orElse(null);
         }
         if (subject == null && request.getClassName() != null) {
+            String className = request.getClassName().trim();
             for (Subject s : subjectRepository.findAll()) {
-                if (request.getClassName().toLowerCase().contains(s.getName().toLowerCase())
-                        || request.getClassName().toLowerCase().contains(s.getCode().toLowerCase())) {
+                if (className.toLowerCase().contains(s.getName().toLowerCase())
+                        || className.toLowerCase().contains(s.getCode().toLowerCase())) {
                     subject = s;
                     break;
                 }
             }
         }
         if (subject == null) {
-            subject = subjectRepository.findAll().stream().findFirst().orElseGet(() ->
-                subjectRepository.save(Subject.builder()
-                        .code("MATH")
-                        .name("Toán Học")
-                        .description("Môn Toán THPT")
-                        .build())
-            );
+            throw new IllegalArgumentException("Thiếu thông tin môn học. Vui lòng chọn môn học trước khi đặt lịch.");
         }
 
         // 2. Resolve Tutor (Gia sư)
@@ -102,55 +97,22 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             tutor = tutorRepository.findById(request.getTutorId()).orElse(null);
         }
         if (tutor == null) {
-            tutor = tutorRepository.findAll().stream().findFirst().orElseGet(() -> {
-                User baseUser = userRepository.save(User.builder()
-                        .email("tutor.default@giasuhq.com")
-                        .fullName("TS. Hoàng Thiên Ứng")
-                        .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
-                        .role(Role.TUTOR)
-                        .build());
-                return tutorRepository.save(Tutor.builder()
-                        .id(baseUser.getId())
-                        .email(baseUser.getEmail())
-                        .fullName(baseUser.getFullName())
-                        .password(baseUser.getPassword())
-                        .role(Role.TUTOR)
-                        .qualification("Tiến sĩ Toán học")
-                        .experienceYears(8)
-                        .hourlyRate(250000.0)
-                        .build());
-            });
+            throw new IllegalArgumentException("Thiếu thông tin gia sư. Vui lòng chọn gia sư trước khi thanh toán.");
         }
 
         // 3. Resolve Student (Học sinh)
         Parent parent = null;
         Student student = null;
         if (currentUser != null && currentUser.getRole() == Role.STUDENT) {
-            student = studentRepository.findById(currentUser.getId()).orElseGet(() -> {
-                // Ensure record exists in students table for joined inheritance
-                return studentRepository.save(Student.builder()
-                        .id(currentUser.getId())
-                        .email(currentUser.getEmail())
-                        .fullName(currentUser.getFullName())
-                        .password(currentUser.getPassword())
-                        .phone(currentUser.getPhone())
-                        .avatarUrl(currentUser.getAvatarUrl())
-                        .role(Role.STUDENT)
-                        .gradeLevel("Lớp 12")
-                        .build());
-            });
+            student = studentRepository.findById(currentUser.getId()).orElse(null);
+            if (student == null) {
+                throw new IllegalArgumentException("Thiếu thông tin học sinh. Vui lòng kiểm tra tài khoản học sinh của bạn.");
+            }
         } else if (currentUser != null && currentUser.getRole() == Role.PARENT) {
-            parent = parentRepository.findById(currentUser.getId()).orElseGet(() -> {
-                return parentRepository.save(Parent.builder()
-                        .id(currentUser.getId())
-                        .email(currentUser.getEmail())
-                        .fullName(currentUser.getFullName())
-                        .password(currentUser.getPassword())
-                        .phone(currentUser.getPhone())
-                        .avatarUrl(currentUser.getAvatarUrl())
-                        .role(Role.PARENT)
-                        .build());
-            });
+            parent = parentRepository.findById(currentUser.getId()).orElse(null);
+            if (parent == null) {
+                throw new IllegalArgumentException("Thiếu thông tin phụ huynh. Vui lòng kiểm tra tài khoản phụ huynh của bạn.");
+            }
 
             if (request.getStudentId() != null) {
                 final Long currentParentId = parent.getId();
@@ -159,13 +121,17 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                         .orElse(null);
             }
             if (student == null) {
+                String studentName = request.getStudentName();
                 String studentEmail = request.getStudentEmail();
+                if ((studentName == null || studentName.isBlank()) && (studentEmail == null || studentEmail.isBlank()) && request.getStudentId() == null) {
+                    throw new IllegalArgumentException("Thiếu thông tin học sinh. Vui lòng chọn học sinh hoặc nhập tên học sinh.");
+                }
                 if (studentEmail == null || studentEmail.isBlank()) {
                     studentEmail = "student." + System.currentTimeMillis() + "@giasuhq.com";
                 }
                 student = studentRepository.save(Student.builder()
                         .email(studentEmail.trim().toLowerCase())
-                        .fullName(request.getStudentName() != null && !request.getStudentName().isBlank() ? request.getStudentName() : currentUser.getFullName())
+                        .fullName(studentName != null && !studentName.isBlank() ? studentName : currentUser.getFullName())
                         .password(currentUser.getPassword())
                         .phone(currentUser.getPhone())
                         .avatarUrl(currentUser.getAvatarUrl())
@@ -178,37 +144,15 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             student = studentRepository.findById(request.getStudentId()).orElse(null);
         }
         if (student == null) {
-            student = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
-                User baseStudent = userRepository.save(User.builder()
-                        .email("student." + System.currentTimeMillis() + "@giasuhq.com")
-                        .fullName(request.getStudentName() != null && !request.getStudentName().isBlank() ? request.getStudentName() : "Học sinh Mới")
-                        .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
-                        .role(Role.STUDENT)
-                        .build());
-                return studentRepository.save(Student.builder()
-                        .id(baseStudent.getId())
-                        .email(baseStudent.getEmail())
-                        .fullName(baseStudent.getFullName())
-                        .password(baseStudent.getPassword())
-                        .role(Role.STUDENT)
-                        .gradeLevel("Lớp 12")
-                        .build());
-            });
+            throw new IllegalArgumentException("Thiếu thông tin học sinh. Vui lòng chọn học sinh hợp lệ trước khi thanh toán.");
         }
 
         // 4. Resolve Parent (Phụ huynh)
         if (parent == null && currentUser != null && currentUser.getRole() == Role.PARENT) {
-            parent = parentRepository.findById(currentUser.getId()).orElseGet(() -> {
-                return parentRepository.save(Parent.builder()
-                        .id(currentUser.getId())
-                        .email(currentUser.getEmail())
-                        .fullName(currentUser.getFullName())
-                        .password(currentUser.getPassword())
-                        .phone(currentUser.getPhone())
-                        .avatarUrl(currentUser.getAvatarUrl())
-                        .role(Role.PARENT)
-                        .build());
-            });
+            parent = parentRepository.findById(currentUser.getId()).orElse(null);
+            if (parent == null) {
+                throw new IllegalArgumentException("Thiếu thông tin phụ huynh. Vui lòng đăng nhập lại.");
+            }
         } else if (student.getParent() != null) {
             parent = student.getParent();
         }
