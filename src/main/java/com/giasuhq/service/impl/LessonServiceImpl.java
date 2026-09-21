@@ -190,13 +190,6 @@ public class LessonServiceImpl implements LessonService {
                 ? parent.getStudentName()
                 : "Học sinh Mẫu";
 
-        if (parent == null) {
-            parent = parentRepository.findAll().stream().findFirst().orElse(null);
-        }
-
-        String studentName = parent != null && parent.getStudentName() != null && !parent.getStudentName().isBlank()
-                ? parent.getStudentName()
-                : "Học sinh Mẫu";
 
         TutoringClass demoClass = TutoringClass.builder()
                 .className("Lớp Toán 12 - Ôn thi ĐHQG")

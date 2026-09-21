@@ -51,7 +51,7 @@ public class AuthServiceImpl implements AuthService {
                     .phone(request.getPhone())
                     .role(Role.TUTOR)
                     .build();
-        } else {
+        } else if (role == Role.PARENT) {
             user = Parent.builder()
                     .email(email)
                     .password(encodedPassword)
