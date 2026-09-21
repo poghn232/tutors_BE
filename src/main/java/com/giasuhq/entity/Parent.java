@@ -18,4 +18,13 @@ public class Parent extends User {
 
     @Column(name = "emergency_contact")
     private String emergencyContact;
+
+    @Column(name = "student_name")
+    private String studentName;
+
+    @Column(name = "student_grade_level")
+    private String studentGradeLevel;
+
+    @Column(name = "student_school_name")
+    private String studentSchoolName;
 }

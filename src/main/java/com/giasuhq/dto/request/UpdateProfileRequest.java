@@ -23,8 +23,7 @@ public class UpdateProfileRequest {
     // Dành cho Phụ huynh
     private String address;
     private String emergencyContact;
-
-    // Dành cho Học sinh
+    private String studentName;
     private String gradeLevel;
     private String schoolName;
 }

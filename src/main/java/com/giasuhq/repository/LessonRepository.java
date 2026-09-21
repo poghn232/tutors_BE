@@ -10,6 +10,5 @@ import java.util.List;
 public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findByTutoringClass_Tutor_IdOrderByStartTimeDesc(Long tutorId);
     List<Lesson> findByTutoringClass_Parent_IdOrderByStartTimeDesc(Long parentId);
-    List<Lesson> findByTutoringClass_Student_IdOrderByStartTimeDesc(Long studentId);
     List<Lesson> findByTutoringClassIdOrderByStartTimeDesc(Long classId);
 }

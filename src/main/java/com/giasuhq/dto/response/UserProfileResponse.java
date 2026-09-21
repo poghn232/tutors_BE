@@ -31,8 +31,7 @@ public class UserProfileResponse {
     // Chi tiết Phụ huynh
     private String address;
     private String emergencyContact;
-
-    // Chi tiết Học sinh
+    private String studentName;
     private String gradeLevel;
     private String schoolName;
 }

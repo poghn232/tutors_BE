@@ -8,7 +8,6 @@ import com.giasuhq.dto.response.GoogleUserInfo;
 import com.giasuhq.dto.response.UserResponse;
 import com.giasuhq.entity.Parent;
 import com.giasuhq.entity.Role;
-import com.giasuhq.entity.Student;
 import com.giasuhq.entity.Tutor;
 import com.giasuhq.entity.User;
 import com.giasuhq.exception.ResourceNotFoundException;
@@ -52,29 +51,13 @@ public class AuthServiceImpl implements AuthService {
                     .phone(request.getPhone())
                     .role(Role.TUTOR)
                     .build();
-        } else if (role == Role.PARENT) {
+        } else {
             user = Parent.builder()
                     .email(email)
                     .password(encodedPassword)
                     .fullName(request.getFullName())
                     .phone(request.getPhone())
                     .role(Role.PARENT)
-                    .build();
-        } else if (role == Role.STUDENT) {
-            user = Student.builder()
-                    .email(email)
-                    .password(encodedPassword)
-                    .fullName(request.getFullName())
-                    .phone(request.getPhone())
-                    .role(Role.STUDENT)
-                    .build();
-        } else {
-            user = User.builder()
-                    .email(email)
-                    .password(encodedPassword)
-                    .fullName(request.getFullName())
-                    .phone(request.getPhone())
-                    .role(role)
                     .build();
         }
 
@@ -170,7 +153,7 @@ public class AuthServiceImpl implements AuthService {
                 user = userRepository.save(user);
             }
         } else {
-            Role role = request.getRole() != null ? request.getRole() : Role.STUDENT;
+            Role role = request.getRole() != null ? request.getRole() : Role.PARENT;
             String randomPassword = passwordEncoder.encode(UUID.randomUUID().toString());
             String fullName = (userInfo.getName() != null && !userInfo.getName().isBlank())
                     ? userInfo.getName()
@@ -184,21 +167,13 @@ public class AuthServiceImpl implements AuthService {
                         .avatarUrl(userInfo.getPicture())
                         .role(Role.TUTOR)
                         .build();
-            } else if (role == Role.PARENT) {
+            } else {
                 user = Parent.builder()
                         .email(email)
                         .password(randomPassword)
                         .fullName(fullName)
                         .avatarUrl(userInfo.getPicture())
                         .role(Role.PARENT)
-                        .build();
-            } else {
-                user = Student.builder()
-                        .email(email)
-                        .password(randomPassword)
-                        .fullName(fullName)
-                        .avatarUrl(userInfo.getPicture())
-                        .role(Role.STUDENT)
                         .build();
             }
             user = userRepository.save(user);

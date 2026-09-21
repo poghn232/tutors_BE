@@ -3,6 +3,16 @@
 -- Compatible with Local & Remote MySQL Databases
 -- =========================================================
 
+-- Legacy migration: old student table is removed because child info now lives on parent profile.
+-- Run this block on existing databases to keep schema aligned with the new model.
+ALTER TABLE tutoring_classes DROP FOREIGN KEY IF EXISTS fk_classes_student;
+ALTER TABLE tutoring_classes DROP INDEX IF EXISTS idx_classes_student;
+ALTER TABLE tutoring_classes DROP COLUMN IF EXISTS student_id;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_name VARCHAR(255) AFTER emergency_contact;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_grade_level VARCHAR(50) AFTER student_name;
+ALTER TABLE parents ADD COLUMN IF NOT EXISTS student_school_name VARCHAR(255) AFTER student_grade_level;
+DROP TABLE IF EXISTS students;
+
 -- 1. Base Users Table (Chứa thông tin đăng nhập & định danh chung)
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -11,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
     avatar_url VARCHAR(500),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'STUDENT', 'TUTOR', 'ADMIN')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'TUTOR')),
     is_vip BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_users_role (role)
@@ -28,22 +38,15 @@ CREATE TABLE IF NOT EXISTS tutors (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. Parents Table (Kế thừa từ Users qua FK user_id)
+-- Lưu thông tin học sinh ngay trên tài khoản phụ huynh, không có bảng student riêng.
 CREATE TABLE IF NOT EXISTS parents (
     user_id BIGINT PRIMARY KEY,
     address VARCHAR(255),
     emergency_contact VARCHAR(50),
+    student_name VARCHAR(255),
+    student_grade_level VARCHAR(50),
+    student_school_name VARCHAR(255),
     CONSTRAINT fk_parents_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 4. Students Table (Kế thừa từ Users qua FK user_id, liên kết Phụ huynh)
-CREATE TABLE IF NOT EXISTS students (
-    user_id BIGINT PRIMARY KEY,
-    parent_id BIGINT,
-    grade_level VARCHAR(50),               -- Khối lớp (Lớp 10, Lớp 11...)
-    school_name VARCHAR(255),
-    CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_students_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id) ON DELETE SET NULL,
-    INDEX idx_students_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 5. Subjects Table (Danh mục môn học)
@@ -63,23 +66,21 @@ CREATE TABLE IF NOT EXISTS tutor_subjects (
     CONSTRAINT fk_tutor_subjects_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Tutoring Classes Table (Lớp học / Hợp đồng Dạy kèm nối Tutor - Student - Parent)
+-- 7. Tutoring Classes Table (Lớp học / Hợp đồng Dạy kèm nối Tutor - Parent - Student profile on Parent)
 CREATE TABLE IF NOT EXISTS tutoring_classes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     class_name VARCHAR(255) NOT NULL,
     tutor_id BIGINT NOT NULL,
-    student_id BIGINT NOT NULL,
     parent_id BIGINT,
     subject_id BIGINT NOT NULL,
     schedule_description VARCHAR(255),    -- Ví dụ: "Thứ 2 - Thứ 4 (18:00 - 20:00)"
     status VARCHAR(20) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'COMPLETED', 'PAUSED')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_classes_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id),
-    CONSTRAINT fk_classes_student FOREIGN KEY (student_id) REFERENCES students(user_id),
     CONSTRAINT fk_classes_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id),
     CONSTRAINT fk_classes_subject FOREIGN KEY (subject_id) REFERENCES subjects(id),
     INDEX idx_classes_tutor (tutor_id),
-    INDEX idx_classes_student (student_id)
+    INDEX idx_classes_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Lessons Table (Các Buổi học chi tiết của Lớp học)

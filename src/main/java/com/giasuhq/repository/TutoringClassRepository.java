@@ -10,5 +10,4 @@ import java.util.List;
 public interface TutoringClassRepository extends JpaRepository<TutoringClass, Long> {
     List<TutoringClass> findByTutorId(Long tutorId);
     List<TutoringClass> findByParentId(Long parentId);
-    List<TutoringClass> findByStudentId(Long studentId);
 }

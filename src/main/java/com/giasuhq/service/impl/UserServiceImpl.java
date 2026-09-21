@@ -51,12 +51,12 @@ public class UserServiceImpl implements UserService {
                 parent.setAddress(request.getAddress());
             if (request.getEmergencyContact() != null)
                 parent.setEmergencyContact(request.getEmergencyContact());
-        } else if (currentUser instanceof Student) {
-            Student student = (Student) currentUser;
+            if (request.getStudentName() != null)
+                parent.setStudentName(request.getStudentName());
             if (request.getGradeLevel() != null)
-                student.setGradeLevel(request.getGradeLevel());
+                parent.setStudentGradeLevel(request.getGradeLevel());
             if (request.getSchoolName() != null)
-                student.setSchoolName(request.getSchoolName());
+                parent.setStudentSchoolName(request.getSchoolName());
         }
 
         User updated = userRepository.save(currentUser);
@@ -83,11 +83,10 @@ public class UserServiceImpl implements UserService {
         } else if (user instanceof Parent) {
             Parent p = (Parent) user;
             builder.address(p.getAddress())
-                    .emergencyContact(p.getEmergencyContact());
-        } else if (user instanceof Student) {
-            Student s = (Student) user;
-            builder.gradeLevel(s.getGradeLevel())
-                    .schoolName(s.getSchoolName());
+                    .emergencyContact(p.getEmergencyContact())
+                    .studentName(p.getStudentName())
+                    .gradeLevel(p.getStudentGradeLevel())
+                    .schoolName(p.getStudentSchoolName());
         }
 
         return builder.build();
