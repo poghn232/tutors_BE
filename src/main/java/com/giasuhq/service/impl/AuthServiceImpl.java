@@ -107,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
         if (!matches) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không chính xác.");
         }
-        if (request.getRole() != null && user.getRole() != request.getRole()) {
+        if (request.getRole() != null && user.getRole() != Role.ADMIN && user.getRole() != request.getRole()) {
             throw new IllegalArgumentException("Tài khoản này có vai trò là " + getRoleDisplayName(user.getRole()) + ", không thể đăng nhập ở cổng " + getRoleDisplayName(request.getRole()) + ".");
         }
 
@@ -159,7 +159,7 @@ public class AuthServiceImpl implements AuthService {
         User user;
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
-            if (request.getRole() != null && user.getRole() != request.getRole()) {
+            if (request.getRole() != null && user.getRole() != Role.ADMIN && user.getRole() != request.getRole()) {
                 throw new IllegalArgumentException("Tài khoản này có vai trò là " + getRoleDisplayName(user.getRole()) + ", không thể đăng nhập ở cổng " + getRoleDisplayName(request.getRole()) + ".");
             }
             if ((user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) && userInfo.getPicture() != null) {
