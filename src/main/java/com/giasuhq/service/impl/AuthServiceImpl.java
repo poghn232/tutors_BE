@@ -107,9 +107,8 @@ public class AuthServiceImpl implements AuthService {
         if (!matches) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không chính xác.");
         }
-        if (request.getRole() != null && user.getRole() != Role.ADMIN && user.getRole() != request.getRole()) {
-            throw new IllegalArgumentException("Tài khoản này có vai trò là " + getRoleDisplayName(user.getRole()) + ", không thể đăng nhập ở cổng " + getRoleDisplayName(request.getRole()) + ".");
-        }
+        // Vai trò được xác định trực tiếp từ Cơ sở dữ liệu (Single Source of Truth)
+        // Hệ thống tự động trả về đúng vai trò (TUTOR, PARENT, ADMIN) đã lưu trong CSDL
 
         String token = jwtTokenProvider.generateToken(user.getEmail());
 
@@ -159,9 +158,7 @@ public class AuthServiceImpl implements AuthService {
         User user;
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
-            if (request.getRole() != null && user.getRole() != Role.ADMIN && user.getRole() != request.getRole()) {
-                throw new IllegalArgumentException("Tài khoản này có vai trò là " + getRoleDisplayName(user.getRole()) + ", không thể đăng nhập ở cổng " + getRoleDisplayName(request.getRole()) + ".");
-            }
+            // Nếu tài khoản đã tồn tại, tự động sử dụng đúng vai trò đã lưu trong CSDL
             if ((user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) && userInfo.getPicture() != null) {
                 user.setAvatarUrl(userInfo.getPicture());
                 user = userRepository.save(user);

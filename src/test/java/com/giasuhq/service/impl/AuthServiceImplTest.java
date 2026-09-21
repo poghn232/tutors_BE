@@ -30,51 +30,7 @@ class AuthServiceImplTest {
     private AuthServiceImpl authService;
 
     @Test
-    void shouldRejectTutorAccountLoggingInThroughParentPortal() {
-        User tutorUser = User.builder()
-                .id(1L)
-                .email("giasu@gmail.com")
-                .password("encoded_pass")
-                .role(Role.TUTOR)
-                .build();
-
-        when(userRepository.findByEmailNormalized("giasu@gmail.com")).thenReturn(Optional.of(tutorUser));
-        when(passwordEncoder.matches("123456", "encoded_pass")).thenReturn(true);
-
-        LoginRequest request = LoginRequest.builder()
-                .email("giasu@gmail.com")
-                .password("123456")
-                .role(Role.PARENT) // User chose Parent card on login page
-                .build();
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> authService.login(request));
-        assertTrue(ex.getMessage().contains("Tài khoản này có vai trò là Gia sư, không thể đăng nhập ở cổng Phụ huynh"));
-    }
-
-    @Test
-    void shouldRejectParentAccountLoggingInThroughTutorPortal() {
-        User parentUser = User.builder()
-                .id(2L)
-                .email("phuhuynh@gmail.com")
-                .password("encoded_pass")
-                .role(Role.PARENT)
-                .build();
-
-        when(userRepository.findByEmailNormalized("phuhuynh@gmail.com")).thenReturn(Optional.of(parentUser));
-        when(passwordEncoder.matches("123456", "encoded_pass")).thenReturn(true);
-
-        LoginRequest request = LoginRequest.builder()
-                .email("phuhuynh@gmail.com")
-                .password("123456")
-                .role(Role.TUTOR) // User chose Tutor card on login page
-                .build();
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> authService.login(request));
-        assertTrue(ex.getMessage().contains("Tài khoản này có vai trò là Phụ huynh, không thể đăng nhập ở cổng Gia sư"));
-    }
-
-    @Test
-    void shouldAllowTutorAccountLoggingInThroughTutorPortal() {
+    void shouldAuthenticateTutorAndReturnTutorRoleFromDatabase() {
         User tutorUser = User.builder()
                 .id(1L)
                 .email("giasu@gmail.com")
@@ -85,22 +41,46 @@ class AuthServiceImplTest {
 
         when(userRepository.findByEmailNormalized("giasu@gmail.com")).thenReturn(Optional.of(tutorUser));
         when(passwordEncoder.matches("123456", "encoded_pass")).thenReturn(true);
-        when(jwtTokenProvider.generateToken("giasu@gmail.com")).thenReturn("mock_token");
+        when(jwtTokenProvider.generateToken("giasu@gmail.com")).thenReturn("mock_tutor_token");
 
         LoginRequest request = LoginRequest.builder()
                 .email("giasu@gmail.com")
                 .password("123456")
-                .role(Role.TUTOR)
                 .build();
 
         AuthResponse response = authService.login(request);
         assertNotNull(response);
-        assertEquals("mock_token", response.getToken());
+        assertEquals("mock_tutor_token", response.getToken());
         assertEquals(Role.TUTOR, response.getUser().getRole());
     }
 
     @Test
-    void shouldAllowAdminToLoginViaAnyPortal() {
+    void shouldAuthenticateParentAndReturnParentRoleFromDatabase() {
+        User parentUser = User.builder()
+                .id(2L)
+                .email("phuhuynh@gmail.com")
+                .password("encoded_pass")
+                .fullName("Trần Thị Phụ Huynh")
+                .role(Role.PARENT)
+                .build();
+
+        when(userRepository.findByEmailNormalized("phuhuynh@gmail.com")).thenReturn(Optional.of(parentUser));
+        when(passwordEncoder.matches("123456", "encoded_pass")).thenReturn(true);
+        when(jwtTokenProvider.generateToken("phuhuynh@gmail.com")).thenReturn("mock_parent_token");
+
+        LoginRequest request = LoginRequest.builder()
+                .email("phuhuynh@gmail.com")
+                .password("123456")
+                .build();
+
+        AuthResponse response = authService.login(request);
+        assertNotNull(response);
+        assertEquals("mock_parent_token", response.getToken());
+        assertEquals(Role.PARENT, response.getUser().getRole());
+    }
+
+    @Test
+    void shouldAllowAdminToLoginAndReturnAdminRoleFromDatabase() {
         User adminUser = User.builder()
                 .id(99L)
                 .email("admin@giasuhq.com")
@@ -116,11 +96,30 @@ class AuthServiceImplTest {
         LoginRequest request = LoginRequest.builder()
                 .email("admin@giasuhq.com")
                 .password("admin123")
-                .role(Role.PARENT) // Admin logging in via Parent card
                 .build();
 
         AuthResponse response = authService.login(request);
         assertNotNull(response);
         assertEquals(Role.ADMIN, response.getUser().getRole());
+    }
+
+    @Test
+    void shouldRejectInvalidPassword() {
+        User user = User.builder()
+                .id(1L)
+                .email("test@gmail.com")
+                .password("encoded_pass")
+                .role(Role.TUTOR)
+                .build();
+
+        when(userRepository.findByEmailNormalized("test@gmail.com")).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong_pass", "encoded_pass")).thenReturn(false);
+
+        LoginRequest request = LoginRequest.builder()
+                .email("test@gmail.com")
+                .password("wrong_pass")
+                .build();
+
+        assertThrows(IllegalArgumentException.class, () -> authService.login(request));
     }
 }
