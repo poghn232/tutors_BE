@@ -90,7 +90,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         if (subject == null) {
             throw new IllegalArgumentException("Thiếu thông tin môn học. Vui lòng chọn môn học trước khi đặt lịch.");
         }
-
+        log.info("93");
         // 2. Resolve Tutor (Gia sư)
         Tutor tutor = null;
         if (currentUser != null && currentUser.getRole() == Role.TUTOR) {
@@ -149,7 +149,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         if (student == null) {
             throw new IllegalArgumentException("Thiếu thông tin học sinh. Vui lòng chọn học sinh hợp lệ trước khi thanh toán.");
         }
-
+        log.info("152");
         // 4. Resolve Parent (Phụ huynh)
         if (parent == null && currentUser != null && currentUser.getRole() == Role.PARENT) {
             parent = parentRepository.findById(currentUser.getId()).orElse(null);
@@ -180,11 +180,11 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .build();
 
         TutoringClass savedClass = tutoringClassRepository.save(newClass);
-
+        log.info("183");
         // 5. Automatically create the first lesson in the lessons table
         LocalDateTime startTime = parseStartTime(request.getDate(), request.getTime());
         LocalDateTime endTime = startTime.plusHours(1);
-
+        log.info("187");
         Lesson initialLesson = Lesson.builder()
                 .tutoringClass(savedClass)
                 .title("Buổi 1: " + savedClass.getClassName())
@@ -192,6 +192,8 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .endTime(endTime)
                 .status(LessonStatus.SCHEDULED)
                 .build();
+
+        log.info("196");
         lessonRepository.save(initialLesson);
 
         log.info("Class created successfully with ID: {} and Lesson ID: {}", savedClass.getId(), initialLesson.getId());
