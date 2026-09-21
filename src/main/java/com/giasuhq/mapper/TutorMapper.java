@@ -18,7 +18,6 @@ public class TutorMapper {
                 .facebookUrl(request.facebookUrl())
                 .password("default_password")
                 .role(Role.TUTOR)
-                .hourlyRate(request.hourlyRate())
                 .build();
     }
 
@@ -31,7 +30,6 @@ public class TutorMapper {
                 tutor.getPhone() != null ? tutor.getPhone() : "",
                 tutor.getFacebookUrl() != null ? tutor.getFacebookUrl() : "",
                 tutor.getBio() != null ? tutor.getBio() : "",
-                tutor.getHourlyRate() != null ? tutor.getHourlyRate() : 0.0,
                 tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0
         );
     }

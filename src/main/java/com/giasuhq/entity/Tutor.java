@@ -22,9 +22,6 @@ public class Tutor extends User {
     @Column(name = "experience_years")
     private Integer experienceYears;
 
-    @Column(name = "hourly_rate")
-    private Double hourlyRate;
-
     @Column(name = "facebook_url")
     private String facebookUrl;
 }

@@ -28,7 +28,6 @@ public class UserProfileResponse {
     private String bio;
     private String qualification;
     private Integer experienceYears;
-    private Double hourlyRate;
 
     // Chi tiết Phụ huynh / Con em
     private String address;

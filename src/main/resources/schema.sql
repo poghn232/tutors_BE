@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS tutors (
     bio TEXT,
     qualification VARCHAR(255),           -- Trình độ (Đại học, Thạc sĩ...)
     experience_years INT DEFAULT 0,       -- Số năm kinh nghiệm
-    hourly_rate DOUBLE DEFAULT 0.0,
     facebook_url VARCHAR(500),            -- Link Facebook cá nhân gia sư
     CONSTRAINT fk_tutors_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -8,7 +8,6 @@ public record TutorResponse(
         String phone,
         String facebookUrl,
         String bio,
-        double hourlyRate,
         Integer experienceYears
 ) {
 }

@@ -43,8 +43,6 @@ public class UserServiceImpl implements UserService {
                 tutor.setQualification(request.getQualification());
             if (request.getExperienceYears() != null)
                 tutor.setExperienceYears(request.getExperienceYears());
-            if (request.getHourlyRate() != null)
-                tutor.setHourlyRate(request.getHourlyRate());
         } else if (currentUser instanceof Parent) {
             Parent parent = (Parent) currentUser;
             if (request.getAddress() != null)
@@ -79,8 +77,7 @@ public class UserServiceImpl implements UserService {
             Tutor t = (Tutor) user;
             builder.bio(t.getBio())
                     .qualification(t.getQualification())
-                    .experienceYears(t.getExperienceYears())
-                    .hourlyRate(t.getHourlyRate());
+                    .experienceYears(t.getExperienceYears());
         } else if (user instanceof Parent) {
             Parent p = (Parent) user;
             builder.address(p.getAddress())

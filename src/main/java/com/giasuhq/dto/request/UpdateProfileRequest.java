@@ -18,7 +18,6 @@ public class UpdateProfileRequest {
     private String bio;
     private String qualification;
     private Integer experienceYears;
-    private Double hourlyRate;
 
     // Dành cho Phụ huynh
     private String address;
