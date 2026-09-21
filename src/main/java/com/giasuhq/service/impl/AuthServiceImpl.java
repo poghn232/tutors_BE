@@ -107,8 +107,8 @@ public class AuthServiceImpl implements AuthService {
         if (!matches) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không chính xác.");
         }
-        // Vai trò được xác định trực tiếp từ Cơ sở dữ liệu (Single Source of Truth)
-        // Hệ thống tự động trả về đúng vai trò (TUTOR, PARENT, ADMIN) đã lưu trong CSDL
+
+        validateLoginPortal(request.getRole(), user.getRole());
 
         String token = jwtTokenProvider.generateToken(user.getEmail());
 
@@ -158,7 +158,7 @@ public class AuthServiceImpl implements AuthService {
         User user;
         if (existingUserOpt.isPresent()) {
             user = existingUserOpt.get();
-            // Nếu tài khoản đã tồn tại, tự động sử dụng đúng vai trò đã lưu trong CSDL
+            validateLoginPortal(request.getRole(), user.getRole());
             if ((user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) && userInfo.getPicture() != null) {
                 user.setAvatarUrl(userInfo.getPicture());
                 user = userRepository.save(user);
@@ -211,6 +211,28 @@ public class AuthServiceImpl implements AuthService {
                 .balance(user.getBalance())
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private void validateLoginPortal(Role requestedPortal, Role actualRole) {
+        if (requestedPortal == null || actualRole == null || actualRole == Role.ADMIN) {
+            return;
+        }
+        if (requestedPortal != actualRole) {
+            throw new IllegalArgumentException(
+                    "Bạn không thể đăng nhập ở cổng " + getPortalDisplayName(requestedPortal)
+                            + ". Tài khoản của bạn được đăng ký với vai trò "
+                            + getRoleDisplayName(actualRole) + "."
+            );
+        }
+    }
+
+    private String getPortalDisplayName(Role portal) {
+        if (portal == null) return "Chưa xác định";
+        switch (portal) {
+            case TUTOR: return "Gia sư";
+            case PARENT: return "Phụ huynh";
+            default: return portal.name();
+        }
     }
 
     private String getRoleDisplayName(Role role) {

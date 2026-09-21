@@ -104,6 +104,52 @@ class AuthServiceImplTest {
     }
 
     @Test
+    void shouldRejectTutorLoggingInThroughParentPortal() {
+        User tutorUser = User.builder()
+                .id(1L)
+                .email("giasu@gmail.com")
+                .password("encoded_pass")
+                .fullName("Nguyễn Văn Gia Sư")
+                .role(Role.TUTOR)
+                .build();
+
+        when(userRepository.findByEmailNormalized("giasu@gmail.com")).thenReturn(Optional.of(tutorUser));
+        when(passwordEncoder.matches("123456", "encoded_pass")).thenReturn(true);
+
+        LoginRequest request = LoginRequest.builder()
+                .email("giasu@gmail.com")
+                .password("123456")
+                .role(Role.PARENT)
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> authService.login(request));
+        assertTrue(ex.getMessage().contains("không thể đăng nhập ở cổng"));
+    }
+
+    @Test
+    void shouldRejectParentLoggingInThroughTutorPortal() {
+        User parentUser = User.builder()
+                .id(2L)
+                .email("phuhuynh@gmail.com")
+                .password("encoded_pass")
+                .fullName("Trần Thị Phụ Huynh")
+                .role(Role.PARENT)
+                .build();
+
+        when(userRepository.findByEmailNormalized("phuhuynh@gmail.com")).thenReturn(Optional.of(parentUser));
+        when(passwordEncoder.matches("123456", "encoded_pass")).thenReturn(true);
+
+        LoginRequest request = LoginRequest.builder()
+                .email("phuhuynh@gmail.com")
+                .password("123456")
+                .role(Role.TUTOR)
+                .build();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> authService.login(request));
+        assertTrue(ex.getMessage().contains("không thể đăng nhập ở cổng"));
+    }
+
+    @Test
     void shouldRejectInvalidPassword() {
         User user = User.builder()
                 .id(1L)
