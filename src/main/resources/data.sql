@@ -1,12 +1,12 @@
 -- =========================================================
--- GiaSuHQ MVP Initial Seed Data (Data.sql - 9 Tables)
+-- GiaSuHQ MVP Initial Seed Data (Data.sql - 8 Tables)
 -- =========================================================
 
 -- 1. Insert Base Users (Mật khẩu chuẩn BCrypt của '123456')
 INSERT IGNORE INTO users (id, email, password, full_name, phone, role, is_vip, balance) VALUES
 (1, 'tutor.nguyen@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Hoàng Thiên Ứng', '0901234567', 'TUTOR', true, 0),
 (2, 'parent.tran@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Trần Thị B', '0907654321', 'PARENT', true, 500000),
-(3, 'student.tran@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Trần Văn C', '0909999999', 'STUDENT', false, 500000),
+(3, 'admin@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Quản Trị Viên Hệ Thống', '0909999999', 'ADMIN', true, 0),
 (4, 'tutor.lan@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'TS. Phạm Thị Lan', '0902222333', 'TUTOR', true, 0),
 (5, 'tutor.thu@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'TS. Lê Thị Thu', '0903333444', 'TUTOR', true, 0),
 (6, 'tutor.duc@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Trần Minh Đức', '0904444555', 'TUTOR', false, 0),
@@ -22,12 +22,9 @@ INSERT IGNORE INTO tutors (user_id, bio, qualification, experience_years, hourly
 (7, 'Người Pháp gốc Việt, Thạc sĩ Lịch sử Nghệ thuật tại Sorbonne. Dạy ngôn ngữ qua văn hóa - nghệ thuật, điện ảnh và văn học.', 'Thạc sĩ · ĐH Sorbonne', 7, 180000),
 (8, 'Thạc sĩ KHMT ĐH Bách Khoa TP.HCM. Chuyên gia luyện thi Olympic Tin học và Toán ứng dụng.', 'Thạc sĩ Khoa học Máy tính', 5, 220000);
 
--- Insert Parents & Students
-INSERT IGNORE INTO parents (user_id, address, emergency_contact) VALUES
-(2, '123 Đường Nguyễn Huệ, Quận 1, TP.HCM', '0907654321');
-
-INSERT IGNORE INTO students (user_id, parent_id, grade_level, school_name) VALUES
-(3, 2, 'Lớp 11', 'THPT Lê Hồng Phong');
+-- Insert Parents
+INSERT IGNORE INTO parents (user_id, address, emergency_contact, student_name, student_grade_level, student_school_name) VALUES
+(2, '123 Đường Nguyễn Huệ, Quận 1, TP.HCM', '0907654321', 'Trần Văn C', 'Lớp 11', 'THPT Lê Hồng Phong');
 
 -- 3. Insert Subjects (Đầy đủ 8 môn học)
 INSERT IGNORE INTO subjects (id, code, name, description) VALUES
@@ -50,8 +47,8 @@ INSERT IGNORE INTO tutor_subjects (tutor_id, subject_id) VALUES
 (8, 1), (8, 6);
 
 -- 5. Insert Sample Tutoring Class / Contract
-INSERT IGNORE INTO tutoring_classes (id, class_name, tutor_id, student_id, parent_id, subject_id, schedule_description, connection_fee, status) VALUES
-(1, 'Lớp Toán 11 - Em Trần Văn C', 1, 3, 2, 1, 'Thứ 2 - Thứ 6 (18:00 - 20:00)', 50000.00, 'ACTIVE');
+INSERT IGNORE INTO tutoring_classes (id, class_name, tutor_id, student_name, student_grade_level, student_school_name, parent_id, subject_id, schedule_description, connection_fee, status) VALUES
+(1, 'Lớp Toán 11 - Em Trần Văn C', 1, 'Trần Văn C', 'Lớp 11', 'THPT Lê Hồng Phong', 2, 1, 'Thứ 2 - Thứ 6 (18:00 - 20:00)', 50000.00, 'ACTIVE');
 
 -- 6. Insert Completed Lesson
 INSERT IGNORE INTO lessons (id, class_id, title, start_time, end_time, status) VALUES

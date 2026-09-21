@@ -25,9 +25,14 @@ public class TutoringClass {
     @JoinColumn(name = "tutor_id", nullable = false)
     private Tutor tutor;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_id", nullable = false)
-    private Student student;
+    @Column(name = "student_name")
+    private String studentName;
+
+    @Column(name = "student_grade_level")
+    private String studentGradeLevel;
+
+    @Column(name = "student_school_name")
+    private String studentSchoolName;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")

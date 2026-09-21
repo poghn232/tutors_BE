@@ -1,5 +1,5 @@
 -- =========================================================
--- GiaSuHQ MVP MySQL Database Schema (Inheritance & Complete Domain)
+-- GiaSuHQ MVP MySQL Database Schema (PARENT, TUTOR, ADMIN Domain)
 -- Compatible with Local & Remote MySQL Databases
 -- =========================================================
 
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
     avatar_url VARCHAR(500),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'STUDENT', 'TUTOR', 'ADMIN')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'TUTOR', 'ADMIN')),
     is_vip BOOLEAN DEFAULT FALSE,
     balance DECIMAL(15,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -28,26 +28,18 @@ CREATE TABLE IF NOT EXISTS tutors (
     CONSTRAINT fk_tutors_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. Parents Table (Kế thừa từ Users qua FK user_id)
+-- 3. Parents Table (Kế thừa từ Users qua FK user_id, chứa thông tin con em / học sinh)
 CREATE TABLE IF NOT EXISTS parents (
     user_id BIGINT PRIMARY KEY,
     address VARCHAR(255),
     emergency_contact VARCHAR(50),
+    student_name VARCHAR(255),
+    student_grade_level VARCHAR(50),
+    student_school_name VARCHAR(255),
     CONSTRAINT fk_parents_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. Students Table (Kế thừa từ Users qua FK user_id, liên kết Phụ huynh)
-CREATE TABLE IF NOT EXISTS students (
-    user_id BIGINT PRIMARY KEY,
-    parent_id BIGINT,
-    grade_level VARCHAR(50),               -- Khối lớp (Lớp 10, Lớp 11...)
-    school_name VARCHAR(255),
-    CONSTRAINT fk_students_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_students_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id) ON DELETE SET NULL,
-    INDEX idx_students_parent (parent_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 5. Subjects Table (Danh mục môn học)
+-- 4. Subjects Table (Danh mục môn học)
 CREATE TABLE IF NOT EXISTS subjects (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,      -- MATH, PHYS, CHEM, ENG...
@@ -55,7 +47,7 @@ CREATE TABLE IF NOT EXISTS subjects (
     description TEXT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Tutor Subjects (Bảng trung gian Môn học Gia sư nhận dạy)
+-- 5. Tutor Subjects (Bảng trung gian Môn học Gia sư nhận dạy)
 CREATE TABLE IF NOT EXISTS tutor_subjects (
     tutor_id BIGINT NOT NULL,
     subject_id BIGINT NOT NULL,
@@ -64,12 +56,14 @@ CREATE TABLE IF NOT EXISTS tutor_subjects (
     CONSTRAINT fk_tutor_subjects_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Tutoring Classes Table (Lớp học / Hợp đồng Dạy kèm nối Tutor - Student - Parent)
+-- 6. Tutoring Classes Table (Lớp học / Hợp đồng Dạy kèm kết nối Tutor và Parent)
 CREATE TABLE IF NOT EXISTS tutoring_classes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     class_name VARCHAR(255) NOT NULL,
     tutor_id BIGINT NOT NULL,
-    student_id BIGINT NOT NULL,
+    student_name VARCHAR(255),
+    student_grade_level VARCHAR(50),
+    student_school_name VARCHAR(255),
     parent_id BIGINT,
     subject_id BIGINT NOT NULL,
     schedule_description VARCHAR(255),    -- Ví dụ: "Thứ 2 - Thứ 4 (18:00 - 20:00)"
@@ -79,14 +73,13 @@ CREATE TABLE IF NOT EXISTS tutoring_classes (
     status VARCHAR(30) DEFAULT 'PENDING_TUTOR_APPROVAL' CHECK (status IN ('PENDING_TUTOR_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'DECLINED', 'COMPLETED', 'PAUSED', 'CANCELLED')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_classes_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id),
-    CONSTRAINT fk_classes_student FOREIGN KEY (student_id) REFERENCES students(user_id),
     CONSTRAINT fk_classes_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id),
     CONSTRAINT fk_classes_subject FOREIGN KEY (subject_id) REFERENCES subjects(id),
     INDEX idx_classes_tutor (tutor_id),
-    INDEX idx_classes_student (student_id)
+    INDEX idx_classes_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Lessons Table (Các Buổi học chi tiết của Lớp học)
+-- 7. Lessons Table (Các Buổi học chi tiết của Lớp học)
 CREATE TABLE IF NOT EXISTS lessons (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     class_id BIGINT NOT NULL,
@@ -99,7 +92,7 @@ CREATE TABLE IF NOT EXISTS lessons (
     INDEX idx_lessons_class (class_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Lesson Notes & AI Note Table (Ghi chú thô & AI Note của buổi học)
+-- 8. Lesson Notes & AI Note Table (Ghi chú thô & AI Note của buổi học)
 CREATE TABLE IF NOT EXISTS lesson_notes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     lesson_id BIGINT UNIQUE NOT NULL,

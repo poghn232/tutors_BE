@@ -10,9 +10,8 @@ import java.util.List;
 public interface TutoringClassRepository extends JpaRepository<TutoringClass, Long> {
     List<TutoringClass> findByTutorId(Long tutorId);
     List<TutoringClass> findByParentId(Long parentId);
-    List<TutoringClass> findByStudentId(Long studentId);
 
     List<TutoringClass> findByTutorIdOrderByCreatedAtDesc(Long tutorId);
     List<TutoringClass> findByParentIdOrderByCreatedAtDesc(Long parentId);
-    List<TutoringClass> findByStudentIdOrderByCreatedAtDesc(Long studentId);
+    List<TutoringClass> findAllByOrderByCreatedAtDesc();
 }

@@ -32,7 +32,6 @@ public class LessonServiceImpl implements LessonService {
     private final SubjectRepository subjectRepository;
     private final GeminiAiService geminiAiService;
     private final TutorRepository tutorRepository;
-    private final StudentRepository studentRepository;
     private final ParentRepository parentRepository;
     private final UserRepository userRepository;
 
@@ -60,14 +59,12 @@ public class LessonServiceImpl implements LessonService {
         List<Lesson> lessons;
         Role role = currentUser.getRole();
 
-        if (role == Role.TUTOR) {
+        if (role == Role.ADMIN) {
+            lessons = lessonRepository.findAllByOrderByStartTimeDesc();
+        } else if (role == Role.TUTOR) {
             lessons = lessonRepository.findByTutoringClass_Tutor_IdOrderByStartTimeDesc(currentUser.getId());
-        } else if (role == Role.PARENT) {
-            lessons = lessonRepository.findByTutoringClass_Parent_IdOrderByStartTimeDesc(currentUser.getId());
-        } else if (role == Role.STUDENT) {
-            lessons = lessonRepository.findByTutoringClass_Student_IdOrderByStartTimeDesc(currentUser.getId());
         } else {
-            lessons = lessonRepository.findAll();
+            lessons = lessonRepository.findByTutoringClass_Parent_IdOrderByStartTimeDesc(currentUser.getId());
         }
 
         // Nếu người dùng vừa đăng ký và chưa có lớp/buổi học mẫu, tự động sinh 1 buổi học demo phù hợp vai trò
@@ -100,10 +97,10 @@ public class LessonServiceImpl implements LessonService {
         Optional<LessonNote> noteOptional = lessonNoteRepository.findByLessonId(lessonId);
         LessonNote note;
 
-        String rawNote = request.getRawTutorNote();
+        String rawNote = request.getRawTutorNote() != null ? request.getRawTutorNote() : "";
         String aiSummary = request.getAiSummary();
         if (aiSummary == null || aiSummary.isBlank()) {
-            aiSummary = "📌 [AI Note Tóm tắt]: Buổi học diễn ra tốt. Gia sư đã giảng dạy các nội dung chính: " + rawNote;
+            aiSummary = "📌 [Ghi chú buổi học]: " + rawNote;
         }
 
         if (noteOptional.isPresent()) {
@@ -143,9 +140,9 @@ public class LessonServiceImpl implements LessonService {
         String subjectName = (tutoringClass != null && tutoringClass.getSubject() != null) 
                 ? tutoringClass.getSubject().getName() 
                 : "Môn học";
-        String studentName = (tutoringClass != null && tutoringClass.getStudent() != null) 
-                ? tutoringClass.getStudent().getFullName() 
-                : "Học sinh";
+        String studentName = (tutoringClass != null && tutoringClass.getStudentName() != null)
+                ? tutoringClass.getStudentName()
+                : (tutoringClass != null && tutoringClass.getParent() != null ? tutoringClass.getParent().getStudentName() : "Học sinh");
         String lessonTitle = lesson.getTitle() != null ? lesson.getTitle() : "Buổi học";
 
         return geminiAiService.generateLessonNote(subjectName, studentName, lessonTitle, request.getRawNote());
@@ -181,48 +178,24 @@ public class LessonServiceImpl implements LessonService {
                     .build());
         }
 
-        Student student;
-        if (currentUser != null && currentUser.getRole() == Role.STUDENT) {
-            student = studentRepository.findById(currentUser.getId()).orElseGet(() -> {
-                return studentRepository.save(Student.builder()
-                        .id(currentUser.getId())
-                        .email(currentUser.getEmail())
-                        .fullName(currentUser.getFullName())
-                        .password(currentUser.getPassword())
-                        .role(Role.STUDENT)
-                        .gradeLevel("Lớp 12")
-                        .build());
-            });
-        } else {
-            student = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
-                User baseStudent = userRepository.save(User.builder()
-                        .email("hocsinhmau@giasuhq.com")
-                        .fullName("Học sinh Mẫu")
-                        .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
-                        .role(Role.STUDENT)
-                        .build());
-                return studentRepository.save(Student.builder()
-                        .id(baseStudent.getId())
-                        .email(baseStudent.getEmail())
-                        .fullName(baseStudent.getFullName())
-                        .password(baseStudent.getPassword())
-                        .role(Role.STUDENT)
-                        .gradeLevel("Lớp 12")
-                        .build());
-            });
-        }
-
         Parent parent = null;
         if (currentUser != null && currentUser.getRole() == Role.PARENT) {
             parent = parentRepository.findById(currentUser.getId()).orElse(null);
-        } else if (student.getParent() != null) {
-            parent = student.getParent();
         }
+        if (parent == null) {
+            parent = parentRepository.findAll().stream().findFirst().orElse(null);
+        }
+
+        String studentName = parent != null && parent.getStudentName() != null && !parent.getStudentName().isBlank()
+                ? parent.getStudentName()
+                : "Học sinh Mẫu";
 
         TutoringClass demoClass = TutoringClass.builder()
                 .className("Lớp Toán 12 - Ôn thi ĐHQG")
                 .tutor(tutor)
-                .student(student)
+                .studentName(studentName)
+                .studentGradeLevel(parent != null ? parent.getStudentGradeLevel() : "Lớp 12")
+                .studentSchoolName(parent != null ? parent.getStudentSchoolName() : "Trường Mẫu")
                 .parent(parent)
                 .subject(subject)
                 .scheduleDescription("Thứ 3 và Thứ 5 (19:00 - 21:00)")
@@ -263,7 +236,7 @@ public class LessonServiceImpl implements LessonService {
                 .className(tc.getClassName())
                 .subjectName(tc.getSubject() != null ? tc.getSubject().getName() : "Môn học")
                 .tutorName(tc.getTutor() != null ? tc.getTutor().getFullName() : "Gia sư")
-                .studentName(tc.getStudent() != null ? tc.getStudent().getFullName() : "Học sinh")
+                .studentName(tc.getStudentName() != null ? tc.getStudentName() : (tc.getParent() != null ? tc.getParent().getStudentName() : "Học sinh"))
                 .parentName(tc.getParent() != null ? tc.getParent().getFullName() : "Phụ huynh")
                 .title(lesson.getTitle())
                 .startTime(lesson.getStartTime())

@@ -30,11 +30,10 @@ public class UserProfileResponse {
     private Integer experienceYears;
     private Double hourlyRate;
 
-    // Chi tiết Phụ huynh
+    // Chi tiết Phụ huynh / Con em
     private String address;
     private String emergencyContact;
-
-    // Chi tiết Học sinh
+    private String studentName;
     private String gradeLevel;
     private String schoolName;
 }
