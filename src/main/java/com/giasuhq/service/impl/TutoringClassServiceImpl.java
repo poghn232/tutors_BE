@@ -148,7 +148,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
 
         BigDecimal connectionFee = request.getAmount() != null && request.getAmount() > 0
                 ? BigDecimal.valueOf(request.getAmount())
-                : new BigDecimal("50000");
+                : new BigDecimal("5000");
 
         TutoringClass tutoringClass = TutoringClass.builder()
                 .className(request.getClassName())
@@ -242,7 +242,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
 
         BigDecimal fee = tutoringClass.getConnectionFee() != null && tutoringClass.getConnectionFee().compareTo(BigDecimal.ZERO) > 0
                 ? tutoringClass.getConnectionFee()
-                : new BigDecimal("50000");
+                : new BigDecimal("5000");
 
         User payer = userRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin người dùng thanh toán."));

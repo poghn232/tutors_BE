@@ -48,7 +48,7 @@ INSERT IGNORE INTO tutor_subjects (tutor_id, subject_id) VALUES
 
 -- 5. Insert Sample Tutoring Class / Contract
 INSERT IGNORE INTO tutoring_classes (id, class_name, tutor_id, student_name, student_grade_level, student_school_name, parent_id, subject_id, schedule_description, connection_fee, status) VALUES
-(1, 'Lớp Toán 11 - Em Trần Văn C', 1, 'Trần Văn C', 'Lớp 11', 'THPT Lê Hồng Phong', 2, 1, 'Thứ 2 - Thứ 6 (18:00 - 20:00)', 50000.00, 'ACTIVE');
+(1, 'Lớp Toán 11 - Em Trần Văn C', 1, 'Trần Văn C', 'Lớp 11', 'THPT Lê Hồng Phong', 2, 1, 'Thứ 2 - Thứ 6 (18:00 - 20:00)', 5000.00, 'ACTIVE');
 
 -- 6. Insert Completed Lesson
 INSERT IGNORE INTO lessons (id, class_id, title, start_time, end_time, status) VALUES

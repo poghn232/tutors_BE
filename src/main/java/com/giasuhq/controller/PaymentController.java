@@ -64,9 +64,9 @@ public class PaymentController {
                                 .build(),
                         PaymentResponse.InvoiceItem.builder()
                                 .id(100L)
-                                .className("Phí kết nối mặc định")
-                                .period("Thu một lần cho mỗi yêu cầu được gia sư chấp nhận")
-                                .amount(50000.0)
+                                .className("Phí kết nối mặc định (Thử nghiệm)")
+                                .period("Thu một lần khi kết nối lớp thành công (5.000đ)")
+                                .amount(5000.0)
                                 .status("INFO")
                                 .dueDate("-")
                                 .build()
