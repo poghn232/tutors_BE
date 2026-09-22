@@ -4,6 +4,7 @@ import com.giasuhq.dto.request.CreateTutorRequest;
 import com.giasuhq.dto.response.TutorResponse;
 import com.giasuhq.entity.Role;
 import com.giasuhq.entity.Tutor;
+import com.giasuhq.util.ContactUtils;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -14,7 +15,7 @@ public class TutorMapper {
                 .id(id)
                 .fullName(request.fullName())
                 .email(request.email())
-                .phone(request.phone())
+                .phone(ContactUtils.normalizePhone(request.phone()))
                 .facebookUrl(request.facebookUrl())
                 .password("default_password")
                 .role(Role.TUTOR)

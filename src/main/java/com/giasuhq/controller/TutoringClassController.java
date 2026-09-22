@@ -37,27 +37,7 @@ public class TutoringClassController {
 
     @PostMapping
     public ApiResponse<ClassResponse> createClass(@Valid @RequestBody CreateClassRequest request, Principal principal) {
-        User user = null;
-        if (principal != null) {
-            try {
-                user = getUserByPrincipal(principal);
-            } catch (Exception e) {
-                // principal exists but user not found in DB
-            }
-        }
-        // Fallback: if principal was null or user not found, try studentId from request
-        if (user == null && request.getStudentId() != null) {
-            user = userRepository.findById(request.getStudentId()).orElse(null);
-        }
-        // Fallback: try studentEmail from request
-        if (user == null && request.getStudentEmail() != null && !request.getStudentEmail().isBlank()) {
-            user = userRepository.findByEmailIgnoreCase(request.getStudentEmail())
-                    .or(() -> userRepository.findByEmail(request.getStudentEmail()))
-                    .orElse(null);
-        }
-        if (user == null) {
-            throw new IllegalArgumentException("Chưa đăng nhập hoặc phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
-        }
+        User user = getUserByPrincipal(principal);
         ClassResponse response = tutoringClassService.createClass(request, user);
         return ApiResponse.success("Đã gửi yêu cầu kết nối. Vui lòng chờ gia sư chấp nhận lịch học.", response);
     }

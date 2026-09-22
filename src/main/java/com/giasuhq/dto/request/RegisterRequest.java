@@ -4,6 +4,7 @@ import com.giasuhq.entity.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -27,6 +28,7 @@ public class RegisterRequest {
     @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 
+    @Pattern(regexp = "^$|0[35789]\\d{8}", message = "Số điện thoại phải là số Việt Nam 10 chữ số")
     private String phone;
 
     @NotNull(message = "Vui lòng chọn vai trò (Gia sư, Phụ huynh hoặc Học sinh)")

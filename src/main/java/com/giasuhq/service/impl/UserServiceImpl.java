@@ -5,6 +5,7 @@ import com.giasuhq.dto.response.UserProfileResponse;
 import com.giasuhq.entity.*;
 import com.giasuhq.repository.*;
 import com.giasuhq.service.UserService;
+import com.giasuhq.util.ContactUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +30,11 @@ public class UserServiceImpl implements UserService {
             currentUser.setFullName(request.getFullName());
         }
         if (request.getPhone() != null) {
-            currentUser.setPhone(request.getPhone());
+            String phone = ContactUtils.normalizePhone(request.getPhone());
+            if (!ContactUtils.isValidPhone(phone)) {
+                throw new IllegalArgumentException("Số điện thoại không đúng định dạng. Vui lòng nhập số Việt Nam 10 chữ số.");
+            }
+            currentUser.setPhone(phone);
         }
         if (request.getAvatarUrl() != null) {
             currentUser.setAvatarUrl(request.getAvatarUrl());
@@ -50,7 +55,7 @@ public class UserServiceImpl implements UserService {
             if (request.getAddress() != null)
                 parent.setAddress(request.getAddress());
             if (request.getEmergencyContact() != null)
-                parent.setEmergencyContact(request.getEmergencyContact());
+                parent.setEmergencyContact(ContactUtils.normalizePhone(request.getEmergencyContact()));
             if (request.getStudentName() != null)
                 parent.setStudentName(request.getStudentName());
             if (request.getGradeLevel() != null)

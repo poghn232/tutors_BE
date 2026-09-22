@@ -1,6 +1,7 @@
 package com.giasuhq.security;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,6 +17,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Arrays;
 
 @Configuration
 @EnableWebSecurity
@@ -23,6 +25,9 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private String allowedOrigins;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -36,9 +41,29 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**", "/api/health", "/error", "/h2-console/**", "/api/files/**", "/api/payments/**").permitAll()
+                .requestMatchers(
+                        "/api/auth/send-register-otp",
+                        "/api/auth/register",
+                        "/api/auth/login",
+                        "/api/auth/google",
+                        "/api/auth/forgot-password",
+                        "/api/auth/verify-otp",
+                        "/api/auth/reset-password",
+                        "/api/health",
+                        "/error",
+                        "/h2-console/**"
+                ).permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/files/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/payments/vnpay/callback", "/api/payments/vnpay/ipn").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/payments/sepay/webhook").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tutors/admin/all").hasRole("ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/tutors/*/verification").hasRole("ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tutors").hasRole("ADMIN")
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/subjects").hasRole("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tutors/**", "/api/subjects/**").permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/classes").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/files/**").authenticated()
+                .requestMatchers("/api/payments/**").authenticated()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/classes").authenticated()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
@@ -56,7 +81,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*"));
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isBlank())
+                .toList();
+        configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

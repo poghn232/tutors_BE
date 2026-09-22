@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -29,17 +28,14 @@ public class LessonServiceImpl implements LessonService {
     private final LessonRepository lessonRepository;
     private final LessonNoteRepository lessonNoteRepository;
     private final TutoringClassRepository tutoringClassRepository;
-    private final SubjectRepository subjectRepository;
     private final GeminiAiService geminiAiService;
-    private final TutorRepository tutorRepository;
-    private final ParentRepository parentRepository;
-    private final UserRepository userRepository;
 
     @Override
     @Transactional
     public LessonResponse createLesson(CreateLessonRequest request, User currentUser) {
         TutoringClass tutoringClass = tutoringClassRepository.findById(request.getClassId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + request.getClassId()));
+        ensureCanManageLesson(tutoringClass, currentUser);
 
         Lesson lesson = Lesson.builder()
                 .tutoringClass(tutoringClass)
@@ -67,11 +63,6 @@ public class LessonServiceImpl implements LessonService {
             lessons = lessonRepository.findByTutoringClass_Parent_IdOrderByStartTimeDesc(currentUser.getId());
         }
 
-        // Nếu người dùng vừa đăng ký và chưa có lớp/buổi học mẫu, tự động sinh 1 buổi học demo phù hợp vai trò
-        if (lessons.isEmpty()) {
-            lessons = bootstrapDemoLessonForUser(currentUser);
-        }
-
         return lessons.stream()
                 .map(this::mapToLessonResponse)
                 .collect(Collectors.toList());
@@ -82,6 +73,7 @@ public class LessonServiceImpl implements LessonService {
     public LessonResponse updateLessonStatus(Long lessonId, LessonStatus status, User currentUser) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học với ID: " + lessonId));
+        ensureCanManageLesson(lesson.getTutoringClass(), currentUser);
 
         lesson.setStatus(status);
         Lesson updatedLesson = lessonRepository.save(lesson);
@@ -93,6 +85,7 @@ public class LessonServiceImpl implements LessonService {
     public LessonNoteResponse addOrUpdateLessonNote(Long lessonId, CreateLessonNoteRequest request, User currentUser) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học với ID: " + lessonId));
+        ensureCanManageLesson(lesson.getTutoringClass(), currentUser);
 
         Optional<LessonNote> noteOptional = lessonNoteRepository.findByLessonId(lessonId);
         LessonNote note;
@@ -135,6 +128,7 @@ public class LessonServiceImpl implements LessonService {
     public GenerateAiNoteResponse generateAiLessonNote(Long lessonId, GenerateAiNoteRequest request, User currentUser) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học với ID: " + lessonId));
+        ensureCanManageLesson(lesson.getTutoringClass(), currentUser);
 
         TutoringClass tutoringClass = lesson.getTutoringClass();
         String subjectName = (tutoringClass != null && tutoringClass.getSubject() != null) 
@@ -148,82 +142,19 @@ public class LessonServiceImpl implements LessonService {
         return geminiAiService.generateLessonNote(subjectName, studentName, lessonTitle, request.getRawNote());
     }
 
-    private List<Lesson> bootstrapDemoLessonForUser(User currentUser) {
-        Subject subject = subjectRepository.findAll().stream().findFirst().orElseGet(() -> 
-            subjectRepository.save(Subject.builder().code("MATH").name("Toán Học").description("Môn Toán THPT").build())
-        );
-
-        Tutor tutor;
-        if (currentUser != null && currentUser.getRole() == Role.TUTOR) {
-            tutor = tutorRepository.findById(currentUser.getId()).orElse(null);
-        } else {
-            tutor = tutorRepository.findAll().stream().findFirst().orElse(null);
+    private void ensureCanManageLesson(TutoringClass tutoringClass, User currentUser) {
+        if (currentUser == null) {
+            throw new IllegalArgumentException("Người dùng chưa đăng nhập hoặc phiên làm việc đã hết hạn.");
         }
-        if (tutor == null) {
-            User baseUser = userRepository.save(User.builder()
-                    .email("giasumau@giasuhq.com")
-                    .fullName("TS. Hoàng Thiên Ứng")
-                    .password("$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO")
-                    .role(Role.TUTOR)
-                    .build());
-            tutor = tutorRepository.save(Tutor.builder()
-                    .id(baseUser.getId())
-                    .email(baseUser.getEmail())
-                    .fullName(baseUser.getFullName())
-                    .password(baseUser.getPassword())
-                    .role(Role.TUTOR)
-                    .qualification("Tiến sĩ Toán học")
-                    .experienceYears(8)
-                    .build());
+        if (currentUser.getRole() == Role.ADMIN) {
+            return;
         }
-
-        Parent parent = null;
-        if (currentUser != null && currentUser.getRole() == Role.PARENT) {
-            parent = parentRepository.findById(currentUser.getId()).orElse(null);
+        if (currentUser.getRole() != Role.TUTOR
+                || tutoringClass == null
+                || tutoringClass.getTutor() == null
+                || !currentUser.getId().equals(tutoringClass.getTutor().getId())) {
+            throw new IllegalArgumentException("Chỉ gia sư sở hữu lớp học mới có quyền quản lý buổi học này.");
         }
-        if (parent == null) {
-            parent = parentRepository.findAll().stream().findFirst().orElse(null);
-        }
-
-        String studentName = parent != null && parent.getStudentName() != null && !parent.getStudentName().isBlank()
-                ? parent.getStudentName()
-                : "Học sinh Mẫu";
-
-
-        TutoringClass demoClass = TutoringClass.builder()
-                .className("Lớp Toán 12 - Ôn thi ĐHQG")
-                .tutor(tutor)
-                .studentName(studentName)
-                .studentGradeLevel(parent != null ? parent.getStudentGradeLevel() : "Lớp 12")
-                .studentSchoolName(parent != null ? parent.getStudentSchoolName() : "Trường Mẫu")
-                .parent(parent)
-                .subject(subject)
-                .scheduleDescription("Thứ 3 và Thứ 5 (19:00 - 21:00)")
-                .status(ClassStatus.ACTIVE)
-                .build();
-        demoClass = tutoringClassRepository.save(demoClass);
-
-        Lesson demoLesson = Lesson.builder()
-                .tutoringClass(demoClass)
-                .title("Buổi 1: Hàm số và Đạo hàm nâng cao")
-                .startTime(LocalDateTime.now().minusHours(2))
-                .endTime(LocalDateTime.now().minusMinutes(30))
-                .status(LessonStatus.COMPLETED)
-                .build();
-        demoLesson = lessonRepository.save(demoLesson);
-
-        LessonNote demoNote = LessonNote.builder()
-                .lesson(demoLesson)
-                .rawTutorNote("Đã dạy xong phần cực trị hàm số hợp. Học sinh tiếp thu bài nhanh, làm tốt 8/10 bài tập tại lớp.")
-                .aiSummary("📌 [AI Note Tóm tắt]: Học sinh nắm vững lý thuyết Cực trị hàm số. Tỷ lệ hoàn thành bài tập tại lớp đạt 80%.")
-                .keyLearnings("Khái niệm đạo hàm cấp 1, cực đại/cực tiểu và ứng dụng xét biến thiên.")
-                .areasForImprovement("Cần tính toán cẩn thận hơn ở các câu hỏi trắc nghiệm đếm số điểm cực trị.")
-                .build();
-        lessonNoteRepository.save(demoNote);
-
-        List<Lesson> result = new ArrayList<>();
-        result.add(demoLesson);
-        return result;
     }
 
     private LessonResponse mapToLessonResponse(Lesson lesson) {

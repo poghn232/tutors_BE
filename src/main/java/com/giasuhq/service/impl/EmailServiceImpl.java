@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -29,34 +28,13 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    @Async
-    public void sendOtpEmail(String toEmail, String otpCode) {
+    public boolean sendOtpEmail(String toEmail, String otpCode) {
         log.info("Preparing OTP email for recipient: {}", toEmail);
-
-        if (mailSender == null || fromEmail == null || fromEmail.isBlank() || mailPassword == null || mailPassword.isBlank()) {
-            log.warn("=================================================");
-            log.warn("JavaMailSender or MAIL_PASSWORD is not fully configured.");
-            log.warn("FORGOT PASSWORD OTP for {}: [{}]", toEmail, otpCode);
-            log.warn("=================================================");
-            return;
-        }
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(fromEmail, "Gia Sư HQ Support");
-            helper.setTo(toEmail);
-            helper.setSubject("[Gia Sư HQ] Mã xác nhận đặt lại mật khẩu: " + otpCode);
-
-            String htmlBody = buildOtpHtmlContent(toEmail, otpCode);
-            helper.setText(htmlBody, true);
-
-            mailSender.send(message);
-            log.info("OTP email successfully sent to {}", toEmail);
-        } catch (Exception e) {
-            log.error("Failed to send OTP email to {}: {}. [DEV OTP CODE: {}]", toEmail, e.getMessage(), otpCode);
-        }
+        return sendHtmlEmail(
+                toEmail,
+                "[Gia Sư HQ] Mã xác nhận đặt lại mật khẩu",
+                buildOtpHtmlContent(toEmail, otpCode)
+        );
     }
 
     private String buildOtpHtmlContent(String toEmail, String otpCode) {
@@ -99,33 +77,34 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    @Async
-    public void sendRegisterOtpEmail(String toEmail, String otpCode) {
+    public boolean sendRegisterOtpEmail(String toEmail, String otpCode) {
         log.info("Preparing Registration OTP email for recipient: {}", toEmail);
+        return sendHtmlEmail(
+                toEmail,
+                "[Gia Sư HQ] Mã xác thực kích hoạt tài khoản",
+                buildRegisterOtpHtmlContent(toEmail, otpCode)
+        );
+    }
 
-        if (mailSender == null || fromEmail == null || fromEmail.isBlank() || mailPassword == null || mailPassword.isBlank()) {
-            log.warn("=================================================");
-            log.warn("JavaMailSender or MAIL_PASSWORD is not fully configured.");
-            log.warn("REGISTER ACCOUNT OTP for {}: [{}]", toEmail, otpCode);
-            log.warn("=================================================");
-            return;
+    private boolean sendHtmlEmail(String toEmail, String subject, String htmlBody) {
+        if (!isMailConfigured()) {
+            log.warn("SMTP chưa được cấu hình đầy đủ; OTP sẽ được trả về ở chế độ phát triển.");
+            return false;
         }
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
             helper.setFrom(fromEmail, "Gia Sư HQ Support");
             helper.setTo(toEmail);
-            helper.setSubject("[Gia Sư HQ] Mã xác thực kích hoạt tài khoản: " + otpCode);
-
-            String htmlBody = buildRegisterOtpHtmlContent(toEmail, otpCode);
+            helper.setSubject(subject);
             helper.setText(htmlBody, true);
-
             mailSender.send(message);
-            log.info("Registration OTP email successfully sent to {}", toEmail);
+            log.info("OTP email successfully sent to {}", toEmail);
+            return true;
         } catch (Exception e) {
-            log.error("Failed to send Registration OTP email to {}: {}. [DEV OTP CODE: {}]", toEmail, e.getMessage(), otpCode);
+            log.error("Failed to send OTP email to {}: {}", toEmail, e.getMessage(), e);
+            return false;
         }
     }
 
