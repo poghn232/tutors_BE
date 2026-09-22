@@ -32,10 +32,11 @@ class TutoringClassServiceImplTest {
     @Test
     void shouldExposeTutorParentAndAdminRoles() {
         List<Role> roles = Arrays.asList(Role.values());
-        assertEquals(3, roles.size());
+        assertEquals(4, roles.size());
         assertTrue(roles.contains(Role.TUTOR));
         assertTrue(roles.contains(Role.PARENT));
         assertTrue(roles.contains(Role.ADMIN));
+        assertTrue(roles.contains(Role.STUDENT));
     }
 
     @Test

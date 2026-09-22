@@ -22,6 +22,11 @@ ALTER TABLE tutors ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP NULL;
 ALTER TABLE tutors ADD COLUMN IF NOT EXISTS certificates_json LONGTEXT;
 DROP TABLE IF EXISTS students;
 
+-- Auto-migrate any legacy STUDENT users to PARENT role
+UPDATE users SET role = 'PARENT' WHERE role = 'STUDENT';
+INSERT IGNORE INTO parents (user_id)
+SELECT id FROM users WHERE role = 'PARENT' AND id NOT IN (SELECT user_id FROM parents);
+
 -- 1. Base Users Table (Chứa thông tin đăng nhập & định danh chung)
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -30,7 +35,7 @@ CREATE TABLE IF NOT EXISTS users (
     full_name VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
     avatar_url VARCHAR(500),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'TUTOR', 'ADMIN')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('PARENT', 'TUTOR', 'ADMIN', 'STUDENT')),
     is_vip BOOLEAN DEFAULT FALSE,
     balance DECIMAL(15,2) NOT NULL DEFAULT 0,
     email_verified BOOLEAN DEFAULT FALSE,

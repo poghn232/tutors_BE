@@ -33,4 +33,14 @@ public class GlobalExceptionHandler {
     public ApiResponse<Void> handleIllegalArgument(IllegalArgumentException exception) {
         return ApiResponse.error(exception.getMessage());
     }
+
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ApiResponse<Void> handleGeneralException(Exception exception) {
+        String msg = exception.getMessage();
+        if (msg == null || msg.isBlank()) {
+            msg = "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.";
+        }
+        return ApiResponse.error(msg);
+    }
 }

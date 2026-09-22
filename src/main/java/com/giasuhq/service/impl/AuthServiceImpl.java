@@ -150,6 +150,11 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email hoặc mật khẩu không chính xác.");
         }
 
+        if (user.getRole() == Role.STUDENT) {
+            user.setRole(Role.PARENT);
+            user = userRepository.save(user);
+        }
+
         validateLoginPortal(request.getRole(), user.getRole());
 
         String token = jwtTokenProvider.generateToken(user.getEmail());
@@ -263,6 +268,9 @@ public class AuthServiceImpl implements AuthService {
         if (requestedPortal == null || actualRole == null || actualRole == Role.ADMIN) {
             return;
         }
+        if (requestedPortal == Role.PARENT && actualRole == Role.STUDENT) {
+            return;
+        }
         if (requestedPortal != actualRole) {
             throw new IllegalArgumentException(
                     "Bạn không thể đăng nhập ở cổng " + getPortalDisplayName(requestedPortal)
@@ -277,6 +285,7 @@ public class AuthServiceImpl implements AuthService {
         switch (portal) {
             case TUTOR: return "Gia sư";
             case PARENT: return "Phụ huynh";
+            case STUDENT: return "Phụ huynh / Học sinh";
             default: return portal.name();
         }
     }
@@ -287,6 +296,7 @@ public class AuthServiceImpl implements AuthService {
             case TUTOR: return "Gia sư";
             case PARENT: return "Phụ huynh";
             case ADMIN: return "Quản trị viên";
+            case STUDENT: return "Phụ huynh / Học sinh";
             default: return role.name();
         }
     }
@@ -298,7 +308,7 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email hợp lệ.");
         }
 
-        if (userRepository.existsByEmailNormalized(normEmail) || userRepository.existsByEmailIgnoreCase(normEmail)) {
+        if (userRepository.existsByEmailIgnoreCase(normEmail) || userRepository.existsByEmailNormalized(normEmail)) {
             throw new IllegalArgumentException("Email '" + normEmail + "' đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.");
         }
 
@@ -318,10 +328,16 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email hợp lệ.");
         }
 
-        userRepository.findByEmailNormalized(normEmail)
+        User user = userRepository.findByEmailNormalized(normEmail)
                 .or(() -> userRepository.findByEmailIgnoreCase(normEmail))
                 .or(() -> userRepository.findByEmail(normEmail))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản liên kết với email: " + normEmail));
+
+        // Auto-heal legacy STUDENT role to PARENT
+        if (user.getRole() == Role.STUDENT) {
+            user.setRole(Role.PARENT);
+            userRepository.save(user);
+        }
 
         int randomPin = new SecureRandom().nextInt(900000) + 100000;
         String otp = String.valueOf(randomPin);
@@ -362,6 +378,10 @@ public class AuthServiceImpl implements AuthService {
                 .or(() -> userRepository.findByEmailIgnoreCase(normEmail))
                 .or(() -> userRepository.findByEmail(normEmail))
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản với email: " + normEmail));
+
+        if (user.getRole() == Role.STUDENT) {
+            user.setRole(Role.PARENT);
+        }
 
         if (newPassword == null || newPassword.trim().length() < 6) {
             throw new IllegalArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự.");

@@ -59,6 +59,13 @@ public class User implements Principal {
         this.createdAt = LocalDateTime.now();
     }
 
+    public Role getRole() {
+        if (this.role == Role.STUDENT) {
+            return Role.PARENT;
+        }
+        return this.role;
+    }
+
     @Override
     public String getName() {
         return this.email;
