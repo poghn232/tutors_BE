@@ -133,3 +133,36 @@ CREATE TABLE IF NOT EXISTS lesson_notes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_notes_lesson FOREIGN KEY (lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. Assignments Table (Quản lý Bài tập: Gia sư giao bài, Phụ huynh nộp, Đánh giá 0-10 & Nhận xét)
+CREATE TABLE IF NOT EXISTS assignments (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    subject_name VARCHAR(100),
+    tutor_id BIGINT NOT NULL,
+    parent_id BIGINT NOT NULL,
+    class_id BIGINT NULL,
+    attachment_url VARCHAR(500),
+    attachment_name VARCHAR(255),
+    attachment_size VARCHAR(50),
+    due_date TIMESTAMP NOT NULL,
+    status VARCHAR(30) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SUBMITTED', 'GRADED', 'NOT_SUBMITTED')),
+    submitted_file_url VARCHAR(500),
+    submitted_file_name VARCHAR(255),
+    submitted_file_size VARCHAR(50),
+    submitted_at TIMESTAMP NULL,
+    submission_note TEXT,
+    rating DECIMAL(3,1) NULL,
+    tutor_comment TEXT,
+    graded_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_assignments_tutor FOREIGN KEY (tutor_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_assignments_parent FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_assignments_class FOREIGN KEY (class_id) REFERENCES tutoring_classes(id) ON DELETE SET NULL,
+    INDEX idx_assignments_tutor (tutor_id),
+    INDEX idx_assignments_parent (parent_id),
+    INDEX idx_assignments_due_date (due_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
