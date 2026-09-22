@@ -22,6 +22,10 @@ services:
         value: never
       - key: CORS_ORIGINS
         value: https://tutors-fe.vercel.app
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
       - key: VNPAY_TMN_CODE
         value: 6NQ5V6GO
       - key: VNPAY_HASH_SECRET

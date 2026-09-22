@@ -302,7 +302,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void sendRegisterOtp(String email, String fullName) {
+    public String sendRegisterOtp(String email, String fullName) {
         String normEmail = email != null ? email.trim().toLowerCase() : "";
         if (normEmail.isBlank() || !normEmail.contains("@")) {
             throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email hợp lệ.");
@@ -319,10 +319,11 @@ public class AuthServiceImpl implements AuthService {
         log.info("Generated registration OTP for {}: [{}]", normEmail, otp);
 
         emailService.sendRegisterOtpEmail(normEmail, otp);
+        return emailService.isMailConfigured() ? null : otp;
     }
 
     @Override
-    public void sendForgotPasswordOtp(String email) {
+    public String sendForgotPasswordOtp(String email) {
         String normEmail = email != null ? email.trim().toLowerCase() : "";
         if (normEmail.isBlank()) {
             throw new IllegalArgumentException("Vui lòng cung cấp địa chỉ email hợp lệ.");
@@ -346,6 +347,7 @@ public class AuthServiceImpl implements AuthService {
         log.info("Generated forgot-password OTP for {}: [{}]", normEmail, otp);
 
         emailService.sendOtpEmail(normEmail, otp);
+        return emailService.isMailConfigured() ? null : otp;
     }
 
     @Override

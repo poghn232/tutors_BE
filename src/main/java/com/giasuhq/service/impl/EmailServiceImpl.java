@@ -24,6 +24,11 @@ public class EmailServiceImpl implements EmailService {
     private String mailPassword;
 
     @Override
+    public boolean isMailConfigured() {
+        return mailSender != null && fromEmail != null && !fromEmail.isBlank() && mailPassword != null && !mailPassword.isBlank();
+    }
+
+    @Override
     @Async
     public void sendOtpEmail(String toEmail, String otpCode) {
         log.info("Preparing OTP email for recipient: {}", toEmail);

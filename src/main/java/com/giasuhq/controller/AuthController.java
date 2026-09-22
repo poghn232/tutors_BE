@@ -19,9 +19,12 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/send-register-otp")
-    public ApiResponse<Void> sendRegisterOtp(@Valid @RequestBody SendRegisterOtpRequest request) {
-        authService.sendRegisterOtp(request.getEmail(), request.getFullName());
-        return ApiResponse.success("Mã xác thực kích hoạt tài khoản đã được gửi về Gmail của bạn. Vui lòng kiểm tra hộp thư!", null);
+    public ApiResponse<String> sendRegisterOtp(@Valid @RequestBody SendRegisterOtpRequest request) {
+        String devOtp = authService.sendRegisterOtp(request.getEmail(), request.getFullName());
+        String msg = devOtp != null
+                ? "Hệ thống chưa cấu hình MAIL_PASSWORD (SMTP). Mã OTP thử nghiệm của bạn là: " + devOtp
+                : "Mã xác thực kích hoạt tài khoản đã được gửi về Gmail của bạn. Vui lòng kiểm tra hộp thư!";
+        return ApiResponse.success(msg, devOtp);
     }
 
     @PostMapping("/register")
@@ -43,9 +46,12 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    public ApiResponse<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        authService.sendForgotPasswordOtp(request.getEmail());
-        return ApiResponse.success("Mã xác minh OTP đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư!", null);
+    public ApiResponse<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        String devOtp = authService.sendForgotPasswordOtp(request.getEmail());
+        String msg = devOtp != null
+                ? "Hệ thống chưa cấu hình MAIL_PASSWORD (SMTP). Mã OTP đặt lại mật khẩu của bạn là: " + devOtp
+                : "Mã xác minh OTP đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư!";
+        return ApiResponse.success(msg, devOtp);
     }
 
     @PostMapping("/verify-otp")
