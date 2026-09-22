@@ -11,7 +11,10 @@ INSERT IGNORE INTO users (id, email, password, full_name, phone, role, is_vip, b
 (5, 'tutor.thu@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'TS. Lê Thị Thu', '0903333444', 'TUTOR', true, 0, true),
 (6, 'tutor.duc@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Trần Minh Đức', '0904444555', 'TUTOR', false, 0, true),
 (7, 'tutor.mai@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Vũ Thị Mai', '0905555666', 'TUTOR', false, 0, true),
-(8, 'tutor.nam@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Đặng Hoàng Nam', '0906666777', 'TUTOR', true, 0, true);
+(8, 'tutor.nam@giasuhq.com', '$2a$10$10Q2J.X5iX/KOM4nHtFMfeXi4JoW3O6sv4ZtaJ6Ab2P0FNC71XcpO', 'Đặng Hoàng Nam', '0906666777', 'TUTOR', true, 0, true),
+(11, 'testtest123@gmail.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'giasutest1', '0901111111', 'TUTOR', true, 0, true),
+(12, 'giasutest2@gmail.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'giasutest2', '0902222222', 'TUTOR', true, 0, true),
+(13, 'giasutest3@gmail.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'giasutest3', '0903333333', 'TUTOR', true, 0, true);
 
 -- 2. Insert Inherited Role Data for Tutors
 INSERT IGNORE INTO tutors (user_id, bio, qualification, experience_years, facebook_url, verification_status, certificates_json) VALUES
@@ -20,7 +23,11 @@ INSERT IGNORE INTO tutors (user_id, bio, qualification, experience_years, facebo
 (5, 'Cựu giảng viên đại học với niềm đam mê làm cho khoa học trở nên thú vị. Sử dụng thí nghiệm thực hành và ví dụ thực tế.', 'Tiến sĩ · ĐH Stanford (Hoa Kỳ)', 12, 'https://facebook.com/giasu.lethithu', 'APPROVED', '[{"id":103,"title":"Chứng nhận Giảng viên Xuất sắc Stanford","imageUrl":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=600&auto=format&fit=crop","date":"2021"}]'),
 (6, 'Thạc sĩ Giáo dục tại ĐH Ngoại Thương. Cựu giáo viên THPT, chuyên gia luyện thi đại học với tỉ lệ học sinh đậu 95%.', 'Thạc sĩ · ĐH Ngoại Thương', 6, 'https://facebook.com/giasu.tranminhduc', 'PENDING', '[{"id":104,"title":"Bằng Thạc Sĩ Quản Lý Giáo Dục - ĐH Ngoại Thương","imageUrl":"https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop","date":"2024"}]'),
 (7, 'Người Pháp gốc Việt, Thạc sĩ Lịch sử Nghệ thuật tại Sorbonne. Dạy ngôn ngữ qua văn hóa - nghệ thuật, điện ảnh và văn học.', 'Thạc sĩ · ĐH Sorbonne', 7, 'https://facebook.com/giasu.vuthimai', 'APPROVED', '[{"id":105,"title":"Thạc Sĩ Văn Hóa Nghệ Thuật - Sorbonne University","imageUrl":"https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600&auto=format&fit=crop","date":"2022"}]'),
-(8, 'Thạc sĩ KHMT ĐH Bách Khoa TP.HCM. Chuyên gia luyện thi Olympic Tin học và Toán ứng dụng.', 'Thạc sĩ Khoa học Máy tính', 5, 'https://facebook.com/giasu.danghoangnam', 'PENDING', '[{"id":106,"title":"Chứng nhận Giải Ba Olympic Tin học Toàn quốc","imageUrl":"https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop","date":"2023"}]');
+(8, 'Thạc sĩ KHMT ĐH Bách Khoa TP.HCM. Chuyên gia luyện thi Olympic Tin học và Toán ứng dụng.', 'Thạc sĩ Khoa học Máy tính', 5, 'https://facebook.com/giasu.danghoangnam', 'PENDING', '[{"id":106,"title":"Chứng nhận Giải Ba Olympic Tin học Toàn quốc","imageUrl":"https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop","date":"2023"}]'),
+(11, 'Gia sư chuyên môn Toán học & Khoa học Tự nhiên. Tận tâm, nhiệt tình giúp học sinh nắm vững kiến thức.', 'Cử nhân Sư phạm Toán', 3, 'https://facebook.com/giasutest1', 'APPROVED', '[{"id":111,"title":"Chứng chỉ Nghiệp vụ Sư phạm","imageUrl":"https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop","date":"2023"}]'),
+(12, 'Gia sư chuyên môn Vật Lý & Hóa học. Phương pháp dạy trực quan, dễ hiểu.', 'Thạc sĩ Khoa học Tự nhiên', 4, 'https://facebook.com/giasutest2', 'APPROVED', '[{"id":112,"title":"Chứng nhận Giảng dạy Xuất sắc","imageUrl":"https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&auto=format&fit=crop","date":"2023"}]'),
+(13, 'Gia sư chuyên môn Tiếng Anh & Ngữ Văn. Luyện thi chứng chỉ quốc tế và kỳ thi THPT.', 'Cử nhân Sư phạm Ngoại ngữ', 5, 'https://facebook.com/giasutest3', 'APPROVED', '[{"id":113,"title":"Chứng chỉ IELTS 8.0 & Sư phạm","imageUrl":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=600&auto=format&fit=crop","date":"2023"}]');
+
 
 -- Insert Parents
 INSERT IGNORE INTO parents (user_id, address, emergency_contact, student_name, student_grade_level, student_school_name) VALUES
@@ -44,7 +51,11 @@ INSERT IGNORE INTO tutor_subjects (tutor_id, subject_id) VALUES
 (5, 5), (5, 3),
 (6, 4), (6, 8),
 (7, 4),
-(8, 1), (8, 6);
+(8, 1), (8, 6),
+(11, 1), (11, 2),
+(12, 2), (12, 3),
+(13, 4), (13, 7);
+
 
 -- 5. Insert Sample Tutoring Class / Contract
 INSERT IGNORE INTO tutoring_classes (id, class_name, tutor_id, student_name, student_grade_level, student_school_name, parent_id, subject_id, schedule_description, connection_fee, status) VALUES

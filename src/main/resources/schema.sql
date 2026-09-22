@@ -166,3 +166,25 @@ CREATE TABLE IF NOT EXISTS assignments (
     INDEX idx_assignments_due_date (due_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- =========================================================
+-- Seed Data for Test Tutors (giasutest1, giasutest2, giasutest3)
+-- Password BCrypt: $2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C
+-- =========================================================
+INSERT IGNORE INTO users (id, email, password, full_name, phone, role, is_vip, balance, email_verified) VALUES
+(11, 'testtest123@gmail.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'giasutest1', '0901111111', 'TUTOR', true, 0, true),
+(12, 'giasutest2@gmail.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'giasutest2', '0902222222', 'TUTOR', true, 0, true),
+(13, 'giasutest3@gmail.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'giasutest3', '0903333333', 'TUTOR', true, 0, true)
+ON DUPLICATE KEY UPDATE password = VALUES(password), full_name = VALUES(full_name), role = 'TUTOR';
+
+INSERT IGNORE INTO tutors (user_id, bio, qualification, experience_years, facebook_url, verification_status, certificates_json) VALUES
+(11, 'Gia sư chuyên môn Toán học & Khoa học Tự nhiên (Account Test 1). Tận tâm, nhiệt tình giúp học sinh nắm vững kiến thức.', 'Cử nhân Sư phạm Toán', 3, 'https://facebook.com/giasutest1', 'APPROVED', '[{"id":111,"title":"Chứng chỉ Nghiệp vụ Sư phạm","imageUrl":"https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop","date":"2023"}]'),
+(12, 'Gia sư chuyên môn Vật Lý & Hóa học (Account Test 2). Phương pháp dạy trực quan, dễ hiểu.', 'Thạc sĩ Khoa học Tự nhiên', 4, 'https://facebook.com/giasutest2', 'APPROVED', '[{"id":112,"title":"Chứng nhận Giảng dạy Xuất sắc","imageUrl":"https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&auto=format&fit=crop","date":"2023"}]'),
+(13, 'Gia sư chuyên môn Tiếng Anh & Ngữ Văn (Account Test 3). Luyện thi chứng chỉ quốc tế và kỳ thi THPT.', 'Cử nhân Sư phạm Ngoại ngữ', 5, 'https://facebook.com/giasutest3', 'APPROVED', '[{"id":113,"title":"Chứng chỉ IELTS 8.0 & Sư phạm","imageUrl":"https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?w=600&auto=format&fit=crop","date":"2023"}]')
+ON DUPLICATE KEY UPDATE verification_status = 'APPROVED';
+
+INSERT IGNORE INTO tutor_subjects (tutor_id, subject_id) VALUES
+(11, 1), (11, 2),
+(12, 2), (12, 3),
+(13, 4), (13, 7);
+
+
