@@ -166,6 +166,39 @@ CREATE TABLE IF NOT EXISTS assignments (
     INDEX idx_assignments_due_date (due_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 10. Learning Materials Table (Quản lý Tài liệu Học tập: Admin / Gia sư đăng, phân quyền VIP, đính kèm file <= 20MB)
+CREATE TABLE IF NOT EXISTS learning_materials (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    subject_name VARCHAR(100) NOT NULL,
+    material_type VARCHAR(50) NOT NULL DEFAULT 'pdf',   -- pdf, video, exercise, quiz
+    type_badge VARCHAR(50) DEFAULT 'PDF',               -- PDF, Video, Bài tập, Trắc nghiệm
+    badge_extra VARCHAR(50) NULL,                       -- MỚI, HOT...
+    author_name VARCHAR(255),
+    file_url VARCHAR(500),
+    file_name VARCHAR(255),
+    file_size VARCHAR(50),
+    is_vip BOOLEAN NOT NULL DEFAULT FALSE,
+    downloads_count INT NOT NULL DEFAULT 0,
+    btn_text VARCHAR(100),
+    btn_color VARCHAR(50),
+    created_by BIGINT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_materials_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_materials_subject (subject_name),
+    INDEX idx_materials_is_vip (is_vip)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =========================================================
+-- Seed Data for Admin User (admin@giasuhq.com)
+-- Password BCrypt: $2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C
+-- =========================================================
+INSERT IGNORE INTO users (id, email, password, full_name, phone, role, is_vip, balance, email_verified) VALUES
+(3, 'admin@giasuhq.com', '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', 'Quản Trị Viên Hệ Thống', '0909999999', 'ADMIN', true, 0, true)
+ON DUPLICATE KEY UPDATE password = '$2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C', full_name = 'Quản Trị Viên Hệ Thống', role = 'ADMIN';
+
 -- =========================================================
 -- Seed Data for Test Tutors (giasutest1, giasutest2, giasutest3)
 -- Password BCrypt: $2a$10$I9klrgy1h/1nBfZcrsooIO1dMDIRrefD/CJL9kRJz194/zb60fW7C
@@ -186,5 +219,18 @@ INSERT IGNORE INTO tutor_subjects (tutor_id, subject_id) VALUES
 (11, 1), (11, 2),
 (12, 2), (12, 3),
 (13, 4), (13, 7);
+
+-- Seed Initial Learning Materials
+INSERT IGNORE INTO learning_materials (id, title, description, subject_name, material_type, type_badge, badge_extra, author_name, file_url, file_name, file_size, is_vip, downloads_count, btn_text, btn_color, created_by) VALUES
+(1, 'Công thức Toán THPT tổng hợp', 'Tổng hợp toàn bộ công thức Toán từ lớp 10 đến 12, bao gồm Đại số, Hình học và Giải tích.', 'Toán học', 'pdf', 'PDF', NULL, 'TS. Nguyễn Thị Hoa', '/uploads/cong_thuc_toan_thpt.pdf', 'cong_thuc_toan_thpt.pdf', '1.2 MB', FALSE, 2341, 'Tải xuống (1.2MB)', '#f97316', 1),
+(2, 'Video giải bài Vật lý sóng âm', 'Hướng dẫn chi tiết giải các dạng bài tập sóng âm, giao thoa sóng và hiệu ứng Doppler.', 'Vật lý', 'video', 'Video', 'MỚI', 'TS. Nguyễn Thị Hoa', '/uploads/video_song_am.mp4', 'video_song_am.mp4', '24 MB', FALSE, 1892, 'Tải xuống (24 phút)', '#7c3aed', 1),
+(3, 'Từ vựng Tiếng Anh chủ đề môi trường', 'Bộ từ vựng 200+ từ về môi trường, biến đổi khí hậu và phát triển bền vững kèm ví dụ.', 'Tiếng Anh', 'pdf', 'PDF', NULL, 'Trần Minh Đức', '/uploads/tu_vung_tieng_anh_moi_truong.pdf', 'tu_vung_tieng_anh_moi_truong.pdf', '0.8 MB', FALSE, 3104, 'Tải xuống (0.8MB)', '#f43f5e', 6),
+(4, 'Trắc nghiệm Sinh học tế bào', 'Bộ 80 câu trắc nghiệm về cấu trúc và chức năng tế bào, có đáp án và giải thích chi tiết.', 'Sinh học', 'quiz', 'Trắc nghiệm', NULL, 'TS. Lê Thị Thu', '/uploads/trac_nghiem_sinh_hoc_te_bao.pdf', 'trac_nghiem_sinh_hoc_te_bao.pdf', '1.5 MB', FALSE, 1567, 'Tải xuống', '#00c288', 5),
+(5, 'Đề thi thử THPT quốc gia Toán 2026', 'Đề thi chuẩn cấu trúc Bộ GD&ĐT kèm video chữa bài độc quyền từ thủ khoa và giáo viên chuyên.', 'Toán học', 'pdf', 'PDF', NULL, 'TS. Nguyễn Thị Hoa', '/uploads/de_thi_thu_toan_thpt_2026.pdf', 'de_thi_thu_toan_thpt_2026.pdf', '3.5 MB', TRUE, 841, 'Tải xuống (3.5MB)', '#2563eb', 1),
+(6, 'Bài tập Hóa hữu cơ cơ chế phản ứng', 'Tuyển tập 150 câu bài tập cơ chế chuyên sâu dành cho học sinh giỏi và thi chuyên.', 'Hóa học', 'exercise', 'Bài tập', NULL, 'TS. Phạm Thị Lan', '/uploads/bai_tap_hoa_huu_co.pdf', 'bai_tap_hoa_huu_co.pdf', '2.1 MB', TRUE, 712, 'Tải xuống (2.1MB)', '#2563eb', 4),
+(7, 'Video luyện nghe IELTS 7.5+ chuyên đề Science', 'Chiến thuật bắt key words và bẫy phát âm trong Section 4 bài thi IELTS Listening.', 'Tiếng Anh', 'video', 'Video', NULL, 'Trần Minh Đức', '/uploads/video_ielts_listening_science.mp4', 'video_ielts_listening_science.mp4', '45 MB', TRUE, 954, 'Tải xuống (45 phút)', '#2563eb', 6),
+(8, 'Trắc nghiệm Vật lý hạt nhân 12 nâng cao', 'Dạng bài toán phóng xạ, năng lượng liên kết và phản ứng nhiệt hạch có độ phân hóa cao.', 'Vật lý', 'quiz', 'Trắc nghiệm', NULL, 'TS. Nguyễn Thị Hoa', '/uploads/trac_nghiem_vat_ly_hat_nhan.pdf', 'trac_nghiem_vat_ly_hat_nhan.pdf', '1.4 MB', TRUE, 623, 'Tải xuống (1.4MB)', '#2563eb', 1),
+(9, 'Sổ tay công thức Hóa học 10-11-12', 'Bản in tóm tắt bỏ túi toàn bộ lý thuyết, bảng tính tan, chuỗi thế điện cực và mẹo giải nhanh.', 'Luyện thi THPT', 'pdf', 'PDF', NULL, 'TS. Phạm Thị Lan', '/uploads/so_tay_hoa_hoc_10_11_12.pdf', 'so_tay_hoa_hoc_10_11_12.pdf', '1.8 MB', FALSE, 4102, 'Tải xuống (1.8MB)', '#f97316', 4);
+
 
 
