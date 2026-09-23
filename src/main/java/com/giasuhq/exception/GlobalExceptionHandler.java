@@ -34,6 +34,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(exception.getMessage());
     }
 
+    @ExceptionHandler(EmailDeliveryException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ApiResponse<Void> handleEmailDelivery(EmailDeliveryException exception) {
+        return ApiResponse.error(exception.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ApiResponse<Void> handleGeneralException(Exception exception) {

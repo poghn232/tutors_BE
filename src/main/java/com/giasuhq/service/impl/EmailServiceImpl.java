@@ -1,6 +1,7 @@
 package com.giasuhq.service.impl;
 
 import com.giasuhq.service.EmailService;
+import com.giasuhq.exception.EmailDeliveryException;
 import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -170,7 +171,7 @@ public class EmailServiceImpl implements EmailService {
                     failure.remediation(),
                     exception
             );
-            return false;
+            throw new EmailDeliveryException(failure.category(), failure.userMessage(), exception);
         }
     }
 
@@ -179,6 +180,7 @@ public class EmailServiceImpl implements EmailService {
                 || hasCause(throwable, AuthenticationFailedException.class)) {
             return new MailFailure(
                     "SMTP_AUTHENTICATION",
+                    "Không thể xác thực máy chủ email. Vui lòng kiểm tra MAIL_USERNAME và MAIL_PASSWORD trên server.",
                     "Check that MAIL_USERNAME matches the Gmail account and MAIL_PASSWORD is an active Gmail App Password."
             );
         }
@@ -186,6 +188,7 @@ public class EmailServiceImpl implements EmailService {
         if (hasCause(throwable, SocketTimeoutException.class)) {
             return new MailFailure(
                     "SMTP_TIMEOUT",
+                    "Máy chủ email phản hồi quá chậm. Vui lòng thử lại sau.",
                     "Check outbound connectivity from Render to smtp.gmail.com:587. Increase SMTP timeouts only after confirming connectivity."
             );
         }
@@ -193,6 +196,7 @@ public class EmailServiceImpl implements EmailService {
         if (hasCause(throwable, SSLHandshakeException.class)) {
             return new MailFailure(
                     "SMTP_TLS",
+                    "Kết nối bảo mật SMTP thất bại. Vui lòng thử lại sau.",
                     "Check Gmail SMTP host, port 587, and STARTTLS settings."
             );
         }
@@ -200,12 +204,14 @@ public class EmailServiceImpl implements EmailService {
         if (hasCause(throwable, ConnectException.class)) {
             return new MailFailure(
                     "SMTP_CONNECTION",
+                    "Không thể kết nối đến máy chủ email. Vui lòng thử lại sau.",
                     "Check DNS and outbound access to smtp.gmail.com:587 from the production service."
             );
         }
 
         return new MailFailure(
                 "SMTP_SEND",
+                "Không thể gửi email OTP. Dịch vụ email tạm thời không khả dụng. Vui lòng thử lại sau.",
                 "Inspect the root cause and stack trace in the SMTP_SEND_FAILED log event."
         );
     }
@@ -303,7 +309,7 @@ public class EmailServiceImpl implements EmailService {
         return oneLine.length() <= 300 ? oneLine : oneLine.substring(0, 300) + "...";
     }
 
-    private record MailFailure(String category, String remediation) {
+    private record MailFailure(String category, String userMessage, String remediation) {
     }
 
     private String buildRegisterOtpHtmlContent(String toEmail, String otpCode) {

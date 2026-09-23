@@ -12,6 +12,7 @@ import com.giasuhq.entity.Role;
 import com.giasuhq.entity.Tutor;
 import com.giasuhq.entity.User;
 import com.giasuhq.exception.ResourceNotFoundException;
+import com.giasuhq.exception.EmailDeliveryException;
 import com.giasuhq.repository.OtpVerificationRepository;
 import com.giasuhq.repository.UserRepository;
 import com.giasuhq.security.JwtTokenProvider;
@@ -312,7 +313,10 @@ public class AuthServiceImpl implements AuthService {
         boolean sent = emailService.sendRegisterOtpEmail(normEmail, otp);
         if (emailService.isMailConfigured() && !sent) {
             otpVerificationRepository.deleteByEmailAndPurpose(normEmail, REGISTER_PURPOSE);
-            throw new IllegalArgumentException("Không thể gửi email OTP. Vui lòng kiểm tra MAIL_USERNAME, MAIL_PASSWORD và Gmail App Password trên máy chủ.");
+            throw new EmailDeliveryException(
+                    "SMTP_SEND",
+                    "Không thể gửi email OTP. Dịch vụ email tạm thời không khả dụng. Vui lòng thử lại sau."
+            );
         }
         return sent ? null : otp;
     }
@@ -344,7 +348,10 @@ public class AuthServiceImpl implements AuthService {
         boolean sent = emailService.sendOtpEmail(normEmail, otp);
         if (emailService.isMailConfigured() && !sent) {
             otpVerificationRepository.deleteByEmailAndPurpose(normEmail, PASSWORD_RESET_PURPOSE);
-            throw new IllegalArgumentException("Không thể gửi email OTP. Vui lòng kiểm tra MAIL_USERNAME, MAIL_PASSWORD và Gmail App Password trên máy chủ.");
+            throw new EmailDeliveryException(
+                    "SMTP_SEND",
+                    "Không thể gửi email OTP. Dịch vụ email tạm thời không khả dụng. Vui lòng thử lại sau."
+            );
         }
         return sent ? null : otp;
     }
