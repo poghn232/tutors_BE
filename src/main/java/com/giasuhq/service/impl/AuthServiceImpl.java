@@ -293,6 +293,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public String sendRegisterOtp(String email, String fullName) {
         String normEmail = normalizeEmail(email);
         if (!ContactUtils.isValidEmail(normEmail)) {
@@ -317,6 +318,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public String sendForgotPasswordOtp(String email) {
         String normEmail = normalizeEmail(email);
         if (!ContactUtils.isValidEmail(normEmail)) {
@@ -348,6 +350,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void verifyOtp(String email, String otp) {
         String normEmail = normalizeEmail(email);
         if (!ContactUtils.isValidEmail(normEmail)) {
