@@ -1,13 +1,25 @@
 package com.giasuhq.service.impl;
 
 import com.giasuhq.service.EmailService;
+import jakarta.mail.AuthenticationFailedException;
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import javax.net.ssl.SSLHandshakeException;
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -22,15 +34,31 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.password:}")
     private String mailPassword;
 
+    @Value("${spring.mail.host:}")
+    private String smtpHost;
+
+    @Value("${spring.mail.port:}")
+    private String smtpPort;
+
+    @Value("${spring.mail.properties.mail.smtp.connectiontimeout:}")
+    private String connectionTimeoutMs;
+
+    @Value("${spring.mail.properties.mail.smtp.timeout:}")
+    private String readTimeoutMs;
+
+    @Value("${spring.mail.properties.mail.smtp.writetimeout:}")
+    private String writeTimeoutMs;
+
     @Override
     public boolean isMailConfigured() {
-        return mailSender != null && fromEmail != null && !fromEmail.isBlank() && mailPassword != null && !mailPassword.isBlank();
+        return mailSender != null && hasText(fromEmail) && hasText(mailPassword);
     }
 
     @Override
     public boolean sendOtpEmail(String toEmail, String otpCode) {
-        log.info("Preparing OTP email for recipient: {}", toEmail);
+        log.info("Preparing password-reset OTP email for recipient={}", maskEmail(toEmail));
         return sendHtmlEmail(
+                "PASSWORD_RESET",
                 toEmail,
                 "[Gia Sư HQ] Mã xác nhận đặt lại mật khẩu",
                 buildOtpHtmlContent(toEmail, otpCode)
@@ -78,19 +106,43 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public boolean sendRegisterOtpEmail(String toEmail, String otpCode) {
-        log.info("Preparing Registration OTP email for recipient: {}", toEmail);
+        log.info("Preparing registration OTP email for recipient={}", maskEmail(toEmail));
         return sendHtmlEmail(
+                "REGISTRATION",
                 toEmail,
                 "[Gia Sư HQ] Mã xác thực kích hoạt tài khoản",
                 buildRegisterOtpHtmlContent(toEmail, otpCode)
         );
     }
 
-    private boolean sendHtmlEmail(String toEmail, String subject, String htmlBody) {
+    private boolean sendHtmlEmail(String mailType, String toEmail, String subject, String htmlBody) {
+        String recipient = maskEmail(toEmail);
+        long startedAt = System.nanoTime();
+
         if (!isMailConfigured()) {
-            log.warn("SMTP chưa được cấu hình đầy đủ; OTP sẽ được trả về ở chế độ phát triển.");
+            log.warn(
+                    "event=SMTP_NOT_CONFIGURED mailType={} recipient={} mailSenderAvailable={} usernameConfigured={} passwordConfigured={} smtpHost={} smtpPort={}. OTP delivery skipped.",
+                    mailType,
+                    recipient,
+                    mailSender != null,
+                    hasText(fromEmail),
+                    hasText(mailPassword),
+                    configValue(smtpHost),
+                    configValue(smtpPort)
+            );
             return false;
         }
+
+        log.info(
+                "event=SMTP_SEND_STARTED mailType={} recipient={} smtpHost={} smtpPort={} connectionTimeoutMs={} readTimeoutMs={} writeTimeoutMs={}",
+                mailType,
+                recipient,
+                configValue(smtpHost),
+                configValue(smtpPort),
+                configValue(connectionTimeoutMs),
+                configValue(readTimeoutMs),
+                configValue(writeTimeoutMs)
+        );
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -100,12 +152,158 @@ public class EmailServiceImpl implements EmailService {
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
             mailSender.send(message);
-            log.info("OTP email successfully sent to {}", toEmail);
+            log.info("event=SMTP_SEND_SUCCEEDED mailType={} recipient={} elapsedMs={}", mailType, recipient, elapsedMillis(startedAt));
             return true;
-        } catch (Exception e) {
-            log.error("Failed to send OTP email to {}: {}", toEmail, e.getMessage(), e);
+        } catch (Exception exception) {
+            MailFailure failure = classifyMailFailure(exception);
+            Throwable rootCause = findRootCause(exception);
+            log.error(
+                    "event=SMTP_SEND_FAILED mailType={} category={} recipient={} smtpHost={} smtpPort={} elapsedMs={} rootCauseType={} rootCauseMessage={} remediation={}",
+                    mailType,
+                    failure.category(),
+                    recipient,
+                    configValue(smtpHost),
+                    configValue(smtpPort),
+                    elapsedMillis(startedAt),
+                    rootCause.getClass().getSimpleName(),
+                    summarizeMessage(rootCause.getMessage()),
+                    failure.remediation(),
+                    exception
+            );
             return false;
         }
+    }
+
+    private MailFailure classifyMailFailure(Throwable throwable) {
+        if (hasCause(throwable, MailAuthenticationException.class)
+                || hasCause(throwable, AuthenticationFailedException.class)) {
+            return new MailFailure(
+                    "SMTP_AUTHENTICATION",
+                    "Check that MAIL_USERNAME matches the Gmail account and MAIL_PASSWORD is an active Gmail App Password."
+            );
+        }
+
+        if (hasCause(throwable, SocketTimeoutException.class)) {
+            return new MailFailure(
+                    "SMTP_TIMEOUT",
+                    "Check outbound connectivity from Render to smtp.gmail.com:587. Increase SMTP timeouts only after confirming connectivity."
+            );
+        }
+
+        if (hasCause(throwable, SSLHandshakeException.class)) {
+            return new MailFailure(
+                    "SMTP_TLS",
+                    "Check Gmail SMTP host, port 587, and STARTTLS settings."
+            );
+        }
+
+        if (hasCause(throwable, ConnectException.class)) {
+            return new MailFailure(
+                    "SMTP_CONNECTION",
+                    "Check DNS and outbound access to smtp.gmail.com:587 from the production service."
+            );
+        }
+
+        return new MailFailure(
+                "SMTP_SEND",
+                "Inspect the root cause and stack trace in the SMTP_SEND_FAILED log event."
+        );
+    }
+
+    private boolean hasCause(Throwable throwable, Class<? extends Throwable> expectedType) {
+        Deque<Throwable> pending = new ArrayDeque<>();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        pending.push(throwable);
+
+        while (!pending.isEmpty()) {
+            Throwable current = pending.pop();
+            if (!visited.add(current)) {
+                continue;
+            }
+
+            if (expectedType.isInstance(current)) {
+                return true;
+            }
+
+            if (current.getCause() != null) {
+                pending.push(current.getCause());
+            }
+            if (current instanceof MessagingException messagingException
+                    && messagingException.getNextException() != null) {
+                pending.push(messagingException.getNextException());
+            }
+        }
+        return false;
+    }
+
+    private Throwable findRootCause(Throwable throwable) {
+        Deque<Throwable> pending = new ArrayDeque<>();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable deepest = throwable;
+        pending.push(throwable);
+
+        while (!pending.isEmpty()) {
+            Throwable current = pending.pop();
+            if (!visited.add(current)) {
+                continue;
+            }
+            deepest = current;
+
+            if (current.getCause() != null) {
+                pending.push(current.getCause());
+            }
+            if (current instanceof MessagingException messagingException
+                    && messagingException.getNextException() != null) {
+                pending.push(messagingException.getNextException());
+            }
+        }
+        return deepest;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private String configValue(String value) {
+        return hasText(value) ? value : "<unset>";
+    }
+
+    private long elapsedMillis(long startedAt) {
+        return (System.nanoTime() - startedAt) / 1_000_000;
+    }
+
+    private String maskEmail(String email) {
+        if (!hasText(email)) {
+            return "<empty>";
+        }
+
+        String normalized = email.trim();
+        int atIndex = normalized.indexOf('@');
+        if (atIndex <= 0) {
+            return "***";
+        }
+
+        String localPart = normalized.substring(0, atIndex);
+        String visiblePrefix = localPart.substring(0, Math.min(2, localPart.length()));
+        return visiblePrefix + "***" + normalized.substring(atIndex);
+    }
+
+    private String summarizeMessage(String message) {
+        if (!hasText(message)) {
+            return "<empty>";
+        }
+
+        String oneLine = message.replaceAll("[\\r\\n]+", " ");
+        if (hasText(mailPassword)) {
+            oneLine = oneLine.replace(mailPassword, "<redacted-password>");
+        }
+        if (hasText(fromEmail)) {
+            oneLine = oneLine.replace(fromEmail, maskEmail(fromEmail));
+        }
+        return oneLine.length() <= 300 ? oneLine : oneLine.substring(0, 300) + "...";
+    }
+
+    private record MailFailure(String category, String remediation) {
     }
 
     private String buildRegisterOtpHtmlContent(String toEmail, String otpCode) {
