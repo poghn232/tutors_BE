@@ -310,15 +310,26 @@ public class AuthServiceImpl implements AuthService {
 
         storeOtp(normEmail, REGISTER_PURPOSE, otp);
 
-        boolean sent = emailService.sendRegisterOtpEmail(normEmail, otp);
-        if (emailService.isMailConfigured() && !sent) {
-            otpVerificationRepository.deleteByEmailAndPurpose(normEmail, REGISTER_PURPOSE);
+        if (!emailService.isMailConfigured()) {
+            return otp;
+        }
+
+        try {
+            emailService.sendRegisterOtpEmailAsync(normEmail, otp);
+            log.info("event=OTP_EMAIL_QUEUED mailType=REGISTRATION recipient={}", maskEmail(normEmail));
+            return null;
+        } catch (RuntimeException exception) {
+            log.error(
+                    "event=OTP_EMAIL_QUEUE_FAILED mailType=REGISTRATION recipient={} message={}",
+                    maskEmail(normEmail),
+                    exception.getMessage(),
+                    exception
+            );
             throw new EmailDeliveryException(
-                    "SMTP_SEND",
-                    "Không thể gửi email OTP. Dịch vụ email tạm thời không khả dụng. Vui lòng thử lại sau."
+                    "SMTP_QUEUE",
+                    "Dịch vụ email đang quá tải. Vui lòng thử lại sau."
             );
         }
-        return sent ? null : otp;
     }
 
     @Override
@@ -345,15 +356,26 @@ public class AuthServiceImpl implements AuthService {
 
         storeOtp(normEmail, PASSWORD_RESET_PURPOSE, otp);
 
-        boolean sent = emailService.sendOtpEmail(normEmail, otp);
-        if (emailService.isMailConfigured() && !sent) {
-            otpVerificationRepository.deleteByEmailAndPurpose(normEmail, PASSWORD_RESET_PURPOSE);
+        if (!emailService.isMailConfigured()) {
+            return otp;
+        }
+
+        try {
+            emailService.sendOtpEmailAsync(normEmail, otp);
+            log.info("event=OTP_EMAIL_QUEUED mailType=PASSWORD_RESET recipient={}", maskEmail(normEmail));
+            return null;
+        } catch (RuntimeException exception) {
+            log.error(
+                    "event=OTP_EMAIL_QUEUE_FAILED mailType=PASSWORD_RESET recipient={} message={}",
+                    maskEmail(normEmail),
+                    exception.getMessage(),
+                    exception
+            );
             throw new EmailDeliveryException(
-                    "SMTP_SEND",
-                    "Không thể gửi email OTP. Dịch vụ email tạm thời không khả dụng. Vui lòng thử lại sau."
+                    "SMTP_QUEUE",
+                    "Dịch vụ email đang quá tải. Vui lòng thử lại sau."
             );
         }
-        return sent ? null : otp;
     }
 
     @Override
@@ -399,6 +421,20 @@ public class AuthServiceImpl implements AuthService {
 
     private String normalizeEmail(String email) {
         return email != null ? email.trim().toLowerCase() : "";
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return "<empty>";
+        }
+
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 0) {
+            return "***";
+        }
+
+        String localPart = email.substring(0, atIndex);
+        return localPart.substring(0, Math.min(2, localPart.length())) + "***" + email.substring(atIndex);
     }
 
     private void storeOtp(String email, String purpose, String otp) {

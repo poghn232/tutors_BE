@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.net.ssl.SSLHandshakeException;
@@ -21,6 +22,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -114,6 +116,54 @@ public class EmailServiceImpl implements EmailService {
                 "[Gia Sư HQ] Mã xác thực kích hoạt tài khoản",
                 buildRegisterOtpHtmlContent(toEmail, otpCode)
         );
+    }
+
+    @Async("mailTaskExecutor")
+    @Override
+    public CompletableFuture<Boolean> sendOtpEmailAsync(String toEmail, String otpCode) {
+        log.info("event=SMTP_ASYNC_TASK_STARTED mailType=PASSWORD_RESET recipient={}", maskEmail(toEmail));
+        return sendAsync(
+                "PASSWORD_RESET",
+                toEmail,
+                "[Gia Sư HQ] Mã xác nhận đặt lại mật khẩu",
+                buildOtpHtmlContent(toEmail, otpCode)
+        );
+    }
+
+    @Async("mailTaskExecutor")
+    @Override
+    public CompletableFuture<Boolean> sendRegisterOtpEmailAsync(String toEmail, String otpCode) {
+        log.info("event=SMTP_ASYNC_TASK_STARTED mailType=REGISTRATION recipient={}", maskEmail(toEmail));
+        return sendAsync(
+                "REGISTRATION",
+                toEmail,
+                "[Gia Sư HQ] Mã xác thực kích hoạt tài khoản",
+                buildRegisterOtpHtmlContent(toEmail, otpCode)
+        );
+    }
+
+    private CompletableFuture<Boolean> sendAsync(String mailType, String toEmail, String subject, String htmlBody) {
+        try {
+            return CompletableFuture.completedFuture(sendHtmlEmail(mailType, toEmail, subject, htmlBody));
+        } catch (EmailDeliveryException exception) {
+            log.warn(
+                    "event=SMTP_ASYNC_TASK_FAILED mailType={} category={} recipient={} message={}",
+                    mailType,
+                    exception.getCategory(),
+                    maskEmail(toEmail),
+                    summarizeMessage(exception.getMessage())
+            );
+            return CompletableFuture.completedFuture(false);
+        } catch (Exception exception) {
+            log.error(
+                    "event=SMTP_ASYNC_TASK_FAILED mailType={} category=SMTP_ASYNC recipient={} message={}",
+                    mailType,
+                    maskEmail(toEmail),
+                    summarizeMessage(exception.getMessage()),
+                    exception
+            );
+            return CompletableFuture.completedFuture(false);
+        }
     }
 
     private boolean sendHtmlEmail(String mailType, String toEmail, String subject, String htmlBody) {

@@ -23,7 +23,7 @@ public class AuthController {
         String devOtp = authService.sendRegisterOtp(request.getEmail(), request.getFullName());
         String msg = devOtp != null
                 ? "Hệ thống chưa cấu hình MAIL_PASSWORD (SMTP). Mã OTP thử nghiệm của bạn là: " + devOtp
-                : "Mã xác thực kích hoạt tài khoản đã được gửi về Gmail của bạn. Vui lòng kiểm tra hộp thư!";
+                : "Yêu cầu gửi mã xác thực đã được tiếp nhận. Vui lòng kiểm tra Gmail trong ít phút.";
         return ApiResponse.success(msg, devOtp);
     }
 
@@ -50,7 +50,7 @@ public class AuthController {
         String devOtp = authService.sendForgotPasswordOtp(request.getEmail());
         String msg = devOtp != null
                 ? "Hệ thống chưa cấu hình MAIL_PASSWORD (SMTP). Mã OTP đặt lại mật khẩu của bạn là: " + devOtp
-                : "Mã xác minh OTP đã được gửi về email của bạn. Vui lòng kiểm tra hộp thư!";
+                : "Yêu cầu gửi mã OTP đã được tiếp nhận. Vui lòng kiểm tra email trong ít phút.";
         return ApiResponse.success(msg, devOtp);
     }
 
