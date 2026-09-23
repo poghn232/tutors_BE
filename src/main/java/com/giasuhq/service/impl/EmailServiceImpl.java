@@ -234,12 +234,20 @@ public class EmailServiceImpl implements EmailService {
         );
 
         try {
+            String providerMessageId = "<not-applicable>";
             if (resendProvider) {
-                sendViaResend(toEmail, subject, htmlBody);
+                providerMessageId = sendViaResend(toEmail, subject, htmlBody);
             } else {
                 sendViaSmtp(toEmail, subject, htmlBody);
             }
-            log.info("event=EMAIL_SEND_SUCCEEDED provider={} mailType={} recipient={} elapsedMs={}", provider, mailType, recipient, elapsedMillis(startedAt));
+            log.info(
+                    "event=EMAIL_SEND_SUCCEEDED provider={} mailType={} recipient={} providerMessageId={} elapsedMs={}",
+                    provider,
+                    mailType,
+                    recipient,
+                    providerMessageId,
+                    elapsedMillis(startedAt)
+            );
             return true;
         } catch (Exception exception) {
             MailFailure failure = resendProvider
@@ -276,7 +284,7 @@ public class EmailServiceImpl implements EmailService {
         mailSender.send(message);
     }
 
-    private void sendViaResend(String toEmail, String subject, String htmlBody) {
+    private String sendViaResend(String toEmail, String subject, String htmlBody) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(mailHttpTimeoutMs);
         requestFactory.setReadTimeout(mailHttpTimeoutMs);
@@ -293,15 +301,19 @@ public class EmailServiceImpl implements EmailService {
         payload.put("subject", subject);
         payload.put("html", htmlBody);
 
-        ResponseEntity<String> response = restTemplate.postForEntity(
+        ResponseEntity<Map> response = restTemplate.postForEntity(
                 resendApiUrl,
                 new HttpEntity<>(payload, headers),
-                String.class
+                Map.class
         );
 
         if (!response.getStatusCode().is2xxSuccessful()) {
             throw new IllegalStateException("Email API returned HTTP " + response.getStatusCode().value());
         }
+
+        Map responseBody = response.getBody();
+        Object providerMessageId = responseBody == null ? null : responseBody.get("id");
+        return providerMessageId == null ? "<missing>" : summarizeMessage(String.valueOf(providerMessageId));
     }
 
     private MailFailure classifyResendFailure(Throwable throwable) {
