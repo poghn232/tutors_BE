@@ -8,19 +8,30 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
 
 import javax.net.ssl.SSLHandshakeException;
+import java.io.UnsupportedEncodingException;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.util.ArrayDeque;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -52,8 +63,26 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.properties.mail.smtp.writetimeout:}")
     private String writeTimeoutMs;
 
+    @Value("${mail.provider:smtp}")
+    private String mailProvider;
+
+    @Value("${resend.api.url:https://api.resend.com/emails}")
+    private String resendApiUrl;
+
+    @Value("${resend.api.key:}")
+    private String resendApiKey;
+
+    @Value("${resend.from:}")
+    private String resendFrom;
+
+    @Value("${mail.http.timeout:10000}")
+    private int mailHttpTimeoutMs;
+
     @Override
     public boolean isMailConfigured() {
+        if (usesResend()) {
+            return hasText(resendApiKey) && hasText(resendFrom);
+        }
         return mailSender != null && hasText(fromEmail) && hasText(mailPassword);
     }
 
@@ -121,7 +150,7 @@ public class EmailServiceImpl implements EmailService {
     @Async("mailTaskExecutor")
     @Override
     public CompletableFuture<Boolean> sendOtpEmailAsync(String toEmail, String otpCode) {
-        log.info("event=SMTP_ASYNC_TASK_STARTED mailType=PASSWORD_RESET recipient={}", maskEmail(toEmail));
+        log.info("event=EMAIL_ASYNC_TASK_STARTED provider={} mailType=PASSWORD_RESET recipient={}", providerName(), maskEmail(toEmail));
         return sendAsync(
                 "PASSWORD_RESET",
                 toEmail,
@@ -133,7 +162,7 @@ public class EmailServiceImpl implements EmailService {
     @Async("mailTaskExecutor")
     @Override
     public CompletableFuture<Boolean> sendRegisterOtpEmailAsync(String toEmail, String otpCode) {
-        log.info("event=SMTP_ASYNC_TASK_STARTED mailType=REGISTRATION recipient={}", maskEmail(toEmail));
+        log.info("event=EMAIL_ASYNC_TASK_STARTED provider={} mailType=REGISTRATION recipient={}", providerName(), maskEmail(toEmail));
         return sendAsync(
                 "REGISTRATION",
                 toEmail,
@@ -147,7 +176,8 @@ public class EmailServiceImpl implements EmailService {
             return CompletableFuture.completedFuture(sendHtmlEmail(mailType, toEmail, subject, htmlBody));
         } catch (EmailDeliveryException exception) {
             log.warn(
-                    "event=SMTP_ASYNC_TASK_FAILED mailType={} category={} recipient={} message={}",
+                    "event=EMAIL_ASYNC_TASK_FAILED provider={} mailType={} category={} recipient={} message={}",
+                    providerName(),
                     mailType,
                     exception.getCategory(),
                     maskEmail(toEmail),
@@ -156,7 +186,8 @@ public class EmailServiceImpl implements EmailService {
             return CompletableFuture.completedFuture(false);
         } catch (Exception exception) {
             log.error(
-                    "event=SMTP_ASYNC_TASK_FAILED mailType={} category=SMTP_ASYNC recipient={} message={}",
+                    "event=EMAIL_ASYNC_TASK_FAILED provider={} mailType={} category=EMAIL_ASYNC recipient={} message={}",
+                    providerName(),
                     mailType,
                     maskEmail(toEmail),
                     summarizeMessage(exception.getMessage()),
@@ -169,15 +200,20 @@ public class EmailServiceImpl implements EmailService {
     private boolean sendHtmlEmail(String mailType, String toEmail, String subject, String htmlBody) {
         String recipient = maskEmail(toEmail);
         long startedAt = System.nanoTime();
+        boolean resendProvider = usesResend();
+        String provider = resendProvider ? "RESEND" : "SMTP";
 
         if (!isMailConfigured()) {
             log.warn(
-                    "event=SMTP_NOT_CONFIGURED mailType={} recipient={} mailSenderAvailable={} usernameConfigured={} passwordConfigured={} smtpHost={} smtpPort={}. OTP delivery skipped.",
+                    "event=EMAIL_NOT_CONFIGURED provider={} mailType={} recipient={} mailSenderAvailable={} usernameConfigured={} passwordConfigured={} resendApiKeyConfigured={} resendFromConfigured={} smtpHost={} smtpPort={}. OTP delivery skipped.",
+                    provider,
                     mailType,
                     recipient,
                     mailSender != null,
                     hasText(fromEmail),
                     hasText(mailPassword),
+                    hasText(resendApiKey),
+                    hasText(resendFrom),
                     configValue(smtpHost),
                     configValue(smtpPort)
             );
@@ -185,31 +221,35 @@ public class EmailServiceImpl implements EmailService {
         }
 
         log.info(
-                "event=SMTP_SEND_STARTED mailType={} recipient={} smtpHost={} smtpPort={} connectionTimeoutMs={} readTimeoutMs={} writeTimeoutMs={}",
+                "event=EMAIL_SEND_STARTED provider={} mailType={} recipient={} smtpHost={} smtpPort={} connectionTimeoutMs={} readTimeoutMs={} writeTimeoutMs={} httpTimeoutMs={}",
+                provider,
                 mailType,
                 recipient,
                 configValue(smtpHost),
                 configValue(smtpPort),
                 configValue(connectionTimeoutMs),
                 configValue(readTimeoutMs),
-                configValue(writeTimeoutMs)
+                configValue(writeTimeoutMs),
+                mailHttpTimeoutMs
         );
 
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail, "Gia Sư HQ Support");
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            helper.setText(htmlBody, true);
-            mailSender.send(message);
-            log.info("event=SMTP_SEND_SUCCEEDED mailType={} recipient={} elapsedMs={}", mailType, recipient, elapsedMillis(startedAt));
+            if (resendProvider) {
+                sendViaResend(toEmail, subject, htmlBody);
+            } else {
+                sendViaSmtp(toEmail, subject, htmlBody);
+            }
+            log.info("event=EMAIL_SEND_SUCCEEDED provider={} mailType={} recipient={} elapsedMs={}", provider, mailType, recipient, elapsedMillis(startedAt));
             return true;
         } catch (Exception exception) {
-            MailFailure failure = classifyMailFailure(exception);
+            MailFailure failure = resendProvider
+                    ? classifyResendFailure(exception)
+                    : classifyMailFailure(exception);
             Throwable rootCause = findRootCause(exception);
             log.error(
-                    "event=SMTP_SEND_FAILED mailType={} category={} recipient={} smtpHost={} smtpPort={} elapsedMs={} rootCauseType={} rootCauseMessage={} remediation={}",
+                    "event={} provider={} mailType={} category={} recipient={} smtpHost={} smtpPort={} elapsedMs={} rootCauseType={} rootCauseMessage={} remediation={}",
+                    resendProvider ? "EMAIL_API_SEND_FAILED" : "SMTP_SEND_FAILED",
+                    provider,
                     mailType,
                     failure.category(),
                     recipient,
@@ -223,6 +263,85 @@ public class EmailServiceImpl implements EmailService {
             );
             throw new EmailDeliveryException(failure.category(), failure.userMessage(), exception);
         }
+    }
+
+    private void sendViaSmtp(String toEmail, String subject, String htmlBody)
+            throws MessagingException, UnsupportedEncodingException {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+        helper.setFrom(fromEmail, "Gia Sư HQ Support");
+        helper.setTo(toEmail);
+        helper.setSubject(subject);
+        helper.setText(htmlBody, true);
+        mailSender.send(message);
+    }
+
+    private void sendViaResend(String toEmail, String subject, String htmlBody) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(mailHttpTimeoutMs);
+        requestFactory.setReadTimeout(mailHttpTimeoutMs);
+
+        RestTemplate restTemplate = new RestTemplate(requestFactory);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.setBearerAuth(resendApiKey);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("from", resendFrom);
+        payload.put("to", List.of(toEmail));
+        payload.put("subject", subject);
+        payload.put("html", htmlBody);
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                resendApiUrl,
+                new HttpEntity<>(payload, headers),
+                String.class
+        );
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            throw new IllegalStateException("Email API returned HTTP " + response.getStatusCode().value());
+        }
+    }
+
+    private MailFailure classifyResendFailure(Throwable throwable) {
+        if (hasHttpStatus(throwable, 401) || hasHttpStatus(throwable, 403)) {
+            return new MailFailure(
+                    "EMAIL_API_AUTHENTICATION",
+                    "Không thể xác thực dịch vụ email. Vui lòng kiểm tra RESEND_API_KEY.",
+                    "Check that RESEND_API_KEY is active and RESEND_FROM is a verified sender."
+            );
+        }
+
+        if (hasCause(throwable, SocketTimeoutException.class)) {
+            return new MailFailure(
+                    "EMAIL_API_TIMEOUT",
+                    "Dịch vụ email phản hồi quá chậm. Vui lòng thử lại sau.",
+                    "Check HTTPS connectivity from Render to api.resend.com and the configured HTTP timeout."
+            );
+        }
+
+        if (hasCause(throwable, ConnectException.class)) {
+            return new MailFailure(
+                    "EMAIL_API_CONNECTION",
+                    "Không thể kết nối dịch vụ email. Vui lòng thử lại sau.",
+                    "Check HTTPS connectivity from Render to api.resend.com."
+            );
+        }
+
+        if (hasCause(throwable, HttpStatusCodeException.class)) {
+            return new MailFailure(
+                    "EMAIL_API_SEND",
+                    "Dịch vụ email từ chối yêu cầu gửi. Vui lòng kiểm tra người gửi đã được xác minh.",
+                    "Inspect the email API response and verify RESEND_FROM/domain configuration."
+            );
+        }
+
+        return new MailFailure(
+                "EMAIL_API_SEND",
+                "Không thể gửi email OTP. Dịch vụ email tạm thời không khả dụng. Vui lòng thử lại sau.",
+                "Inspect the EMAIL_API_SEND_FAILED log event."
+        );
     }
 
     private MailFailure classifyMailFailure(Throwable throwable) {
@@ -239,7 +358,7 @@ public class EmailServiceImpl implements EmailService {
             return new MailFailure(
                     "SMTP_TIMEOUT",
                     "Máy chủ email phản hồi quá chậm. Vui lòng thử lại sau.",
-                    "Check outbound connectivity from Render to smtp.gmail.com:587. Increase SMTP timeouts only after confirming connectivity."
+                    "Render Free blocks outbound SMTP ports 25, 465, and 587. Use an HTTPS email API or upgrade the Render service plan."
             );
         }
 
@@ -292,6 +411,33 @@ public class EmailServiceImpl implements EmailService {
         return false;
     }
 
+    private boolean hasHttpStatus(Throwable throwable, int expectedStatus) {
+        Deque<Throwable> pending = new ArrayDeque<>();
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        pending.push(throwable);
+
+        while (!pending.isEmpty()) {
+            Throwable current = pending.pop();
+            if (!visited.add(current)) {
+                continue;
+            }
+
+            if (current instanceof HttpStatusCodeException exception
+                    && exception.getStatusCode().value() == expectedStatus) {
+                return true;
+            }
+
+            if (current.getCause() != null) {
+                pending.push(current.getCause());
+            }
+            if (current instanceof MessagingException messagingException
+                    && messagingException.getNextException() != null) {
+                pending.push(messagingException.getNextException());
+            }
+        }
+        return false;
+    }
+
     private Throwable findRootCause(Throwable throwable) {
         Deque<Throwable> pending = new ArrayDeque<>();
         Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -318,6 +464,14 @@ public class EmailServiceImpl implements EmailService {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private boolean usesResend() {
+        return "resend".equalsIgnoreCase(mailProvider);
+    }
+
+    private String providerName() {
+        return usesResend() ? "RESEND" : "SMTP";
     }
 
     private String configValue(String value) {
@@ -352,6 +506,9 @@ public class EmailServiceImpl implements EmailService {
         String oneLine = message.replaceAll("[\\r\\n]+", " ");
         if (hasText(mailPassword)) {
             oneLine = oneLine.replace(mailPassword, "<redacted-password>");
+        }
+        if (hasText(resendApiKey)) {
+            oneLine = oneLine.replace(resendApiKey, "<redacted-api-key>");
         }
         if (hasText(fromEmail)) {
             oneLine = oneLine.replace(fromEmail, maskEmail(fromEmail));

@@ -26,6 +26,16 @@ services:
         sync: false
       - key: MAIL_PASSWORD
         sync: false
+      - key: MAIL_PROVIDER
+        value: resend
+      - key: MAIL_HTTP_TIMEOUT
+        value: 10000
+      - key: RESEND_API_URL
+        value: https://api.resend.com/emails
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        sync: false
       - key: VNPAY_TMN_CODE
         value: 6NQ5V6GO
       - key: VNPAY_HASH_SECRET

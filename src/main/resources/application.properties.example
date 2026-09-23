@@ -14,3 +14,10 @@ DB_PASSWORD=your_password_here
 
 # Frontend CORS URL
 CORS_ORIGINS=http://localhost:5173
+
+# Email provider. Use "smtp" locally or "resend" on Render Free.
+MAIL_PROVIDER=smtp
+MAIL_HTTP_TIMEOUT=10000
+RESEND_API_URL=https://api.resend.com/emails
+RESEND_API_KEY=
+RESEND_FROM=
