@@ -22,6 +22,29 @@ import java.util.*;
 @RequestMapping("/api/files")
 public class FileUploadController {
 
+    private static final long MAX_FILE_SIZE_BYTES = 20L * 1024 * 1024;
+    private static final long MAX_IMAGE_SIZE_BYTES = 5L * 1024 * 1024;
+    private static final long MAX_REQUEST_SIZE_BYTES = 25L * 1024 * 1024;
+    private static final int MAX_FILES_PER_REQUEST = 8;
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".webp",
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv",
+            ".mp4", ".webm", ".mov", ".zip"
+    );
+
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "image/jpeg", "image/png", "image/webp",
+            "application/pdf", "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "text/plain", "text/csv", "application/zip", "application/x-zip-compressed",
+            "video/mp4", "video/webm", "video/quicktime"
+    );
+
     private final Path uploadDir = Paths.get("uploads").toAbsolutePath().normalize();
 
     public FileUploadController() {
@@ -34,37 +57,11 @@ public class FileUploadController {
 
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<Map<String, Object>>> uploadFile(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Vui lòng chọn tệp tin hợp lệ."));
-        }
-
         try {
-            String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
-            // Sanitize against path traversal
-            if (originalFilename.contains("..")) {
-                return ResponseEntity.badRequest().body(ApiResponse.error("Tên tệp không hợp lệ."));
-            }
-
-            String extension = "";
-            int dotIndex = originalFilename.lastIndexOf('.');
-            if (dotIndex > 0) {
-                extension = originalFilename.substring(dotIndex);
-            }
-
-            String storedFileName = UUID.randomUUID().toString().replace("-", "") + "_" + originalFilename;
-            Path targetLocation = this.uploadDir.resolve(storedFileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-            Map<String, Object> fileData = new HashMap<>();
-            fileData.put("fileId", UUID.randomUUID().toString());
-            fileData.put("originalName", originalFilename);
-            fileData.put("fileName", storedFileName);
-            fileData.put("size", file.getSize());
-            fileData.put("contentType", file.getContentType());
-            fileData.put("fileUrl", "/api/files/view/" + storedFileName);
-            fileData.put("downloadUrl", "/api/files/download/" + storedFileName);
-
+            Map<String, Object> fileData = storeFile(file);
             return ResponseEntity.ok(ApiResponse.success("Tải tệp lên thành công.", fileData));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
         } catch (IOException ex) {
             return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi khi lưu trữ tệp tin: " + ex.getMessage()));
         }
@@ -72,31 +69,101 @@ public class FileUploadController {
 
     @PostMapping("/upload-multiple")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> uploadMultipleFiles(@RequestParam("files") MultipartFile[] files) {
-        List<Map<String, Object>> results = new ArrayList<>();
-        for (MultipartFile file : files) {
-            if (!file.isEmpty()) {
-                try {
-                    String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
-                    if (originalFilename.contains("..")) continue;
+        if (files == null || files.length == 0) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Vui lòng chọn ít nhất một tệp cần tải lên."));
+        }
+        if (files.length > MAX_FILES_PER_REQUEST) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Mỗi lần chỉ được tải lên tối đa " + MAX_FILES_PER_REQUEST + " tệp."));
+        }
 
-                    String storedFileName = UUID.randomUUID().toString().replace("-", "") + "_" + originalFilename;
-                    Path targetLocation = this.uploadDir.resolve(storedFileName);
-                    Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+        long totalSize = 0;
+        try {
+            for (MultipartFile file : files) {
+                validateFile(file);
+                totalSize += file.getSize();
+            }
+            if (totalSize > MAX_REQUEST_SIZE_BYTES) {
+                return ResponseEntity.status(413).body(ApiResponse.error("Tổng dung lượng các tệp không được vượt quá 25MB."));
+            }
 
-                    Map<String, Object> fileData = new HashMap<>();
-                    fileData.put("fileId", UUID.randomUUID().toString());
-                    fileData.put("originalName", originalFilename);
-                    fileData.put("fileName", storedFileName);
-                    fileData.put("size", file.getSize());
-                    fileData.put("contentType", file.getContentType());
-                    fileData.put("fileUrl", "/api/files/view/" + storedFileName);
-                    fileData.put("downloadUrl", "/api/files/download/" + storedFileName);
-                    results.add(fileData);
-                } catch (IOException ignored) {
-                }
+            List<Map<String, Object>> results = new ArrayList<>();
+            for (MultipartFile file : files) {
+                results.add(storeFile(file));
+            }
+            return ResponseEntity.ok(ApiResponse.success("Tải các tệp lên thành công.", results));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage()));
+        } catch (IOException ex) {
+            return ResponseEntity.internalServerError().body(ApiResponse.error("Lỗi khi lưu trữ tệp tin: " + ex.getMessage()));
+        }
+    }
+
+    private Map<String, Object> storeFile(MultipartFile file) throws IOException {
+        validateFile(file);
+
+        String originalFilename = StringUtils.cleanPath(
+                file.getOriginalFilename() != null ? file.getOriginalFilename() : ""
+        );
+        if (originalFilename.isBlank() || originalFilename.contains("..")) {
+            throw new IllegalArgumentException("Tên tệp không hợp lệ.");
+        }
+
+        String storedFileName = UUID.randomUUID().toString().replace("-", "") + "_" + originalFilename;
+        Path targetLocation = this.uploadDir.resolve(storedFileName).normalize();
+        if (!targetLocation.startsWith(this.uploadDir)) {
+            throw new IllegalArgumentException("Tên tệp không hợp lệ.");
+        }
+        Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+
+        Map<String, Object> fileData = new HashMap<>();
+        fileData.put("fileId", UUID.randomUUID().toString());
+        fileData.put("originalName", originalFilename);
+        fileData.put("fileName", storedFileName);
+        fileData.put("size", file.getSize());
+        fileData.put("contentType", file.getContentType());
+        fileData.put("fileUrl", "/api/files/view/" + storedFileName);
+        fileData.put("downloadUrl", "/api/files/download/" + storedFileName);
+        return fileData;
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn tệp tin hợp lệ.");
+        }
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Tệp vượt quá giới hạn 20MB mỗi tệp.");
+        }
+
+        String filename = StringUtils.cleanPath(
+                file.getOriginalFilename() != null ? file.getOriginalFilename() : ""
+        );
+        String extension = getExtension(filename);
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException("Kiểu tệp không được hỗ trợ. Chỉ chấp nhận JPG, PNG, WEBP, PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, TXT, CSV, MP4, WEBM, MOV và ZIP.");
+        }
+        if (isImageExtension(extension) && file.getSize() > MAX_IMAGE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Tệp hình ảnh không được vượt quá 5MB.");
+        }
+
+        String contentType = file.getContentType();
+        if (contentType != null && !contentType.isBlank()) {
+            String normalizedContentType = contentType.toLowerCase(Locale.ROOT);
+            if (!ALLOWED_CONTENT_TYPES.contains(normalizedContentType)
+                    && !"application/octet-stream".equals(normalizedContentType)) {
+                throw new IllegalArgumentException("Kiểu nội dung của tệp không được hỗ trợ.");
             }
         }
-        return ResponseEntity.ok(ApiResponse.success("Tải các tệp lên thành công.", results));
+    }
+
+    private String getExtension(String filename) {
+        int dotIndex = filename.lastIndexOf('.');
+        return dotIndex > 0 && dotIndex < filename.length() - 1
+                ? filename.substring(dotIndex).toLowerCase(Locale.ROOT)
+                : "";
+    }
+
+    private boolean isImageExtension(String extension) {
+        return Set.of(".jpg", ".jpeg", ".png", ".webp").contains(extension);
     }
 
     @GetMapping("/view/{fileName:.+}")
