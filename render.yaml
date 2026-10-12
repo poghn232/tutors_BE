@@ -22,6 +22,10 @@ services:
         value: never
       - key: CORS_ORIGINS
         value: https://tutors-fe.vercel.app
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
       - key: MAIL_USERNAME
         sync: false
       - key: MAIL_PASSWORD
@@ -39,7 +43,7 @@ services:
       - key: VNPAY_TMN_CODE
         value: 6NQ5V6GO
       - key: VNPAY_HASH_SECRET
-        value: UBSXLCRDVNJYZBIFXYMTQTCFHRYJAAOS
+        sync: false
       - key: VNPAY_PAY_URL
         value: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
       - key: VNPAY_RETURN_URL

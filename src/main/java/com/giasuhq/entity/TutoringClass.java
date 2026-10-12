@@ -52,6 +52,24 @@ public class TutoringClass {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "discount_amount", nullable = false, precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "paid_amount", precision = 15, scale = 2)
+    private BigDecimal paidAmount;
+
+    @Column(name = "voucher_code", length = 80)
+    private String voucherCode;
+
+    /**
+     * Stable payment idempotency key supplied by the payment gateway/order flow.
+     * A nullable unique value keeps ordinary class creation compatible while
+     * ensuring a repeated SePay poll cannot create a second class.
+     */
+    @Column(name = "payment_order_code", length = 80, unique = true)
+    private String paymentOrderCode;
+
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
@@ -70,6 +88,9 @@ public class TutoringClass {
         }
         if (this.connectionFee == null) {
             this.connectionFee = BigDecimal.ZERO;
+        }
+        if (this.discountAmount == null) {
+            this.discountAmount = BigDecimal.ZERO;
         }
     }
 }

@@ -5,9 +5,9 @@ import com.giasuhq.dto.request.CreateClassRequest;
 import com.giasuhq.dto.request.SepayWebhookRequest;
 import com.giasuhq.dto.request.VNPayPaymentRequest;
 import com.giasuhq.dto.response.ApiResponse;
-import com.giasuhq.dto.response.ClassResponse;
 import com.giasuhq.dto.response.PaymentResponse;
 import com.giasuhq.dto.response.VNPayPaymentResponse;
+import com.giasuhq.dto.response.ConnectionPaymentResponse;
 import com.giasuhq.service.TutoringClassService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -332,7 +332,7 @@ public class PaymentController {
             data.put("gateway", tx.getGateway());
             data.put("accountNumber", tx.getAccountNumber());
 
-            CreateClassRequest bookingRequest = pendingBookingRequests.remove(key);
+            CreateClassRequest bookingRequest = pendingBookingRequests.get(key);
             if (bookingRequest != null) {
                 try {
                     User bookingUser = null;
@@ -346,10 +346,28 @@ public class PaymentController {
                         bookingUser = userRepository.findById(bookingRequest.getStudentId()).orElse(null);
                     }
 
-                    if (bookingUser != null || bookingRequest.getStudentId() == null) {
-                        ClassResponse created = tutoringClassService.createClass(bookingRequest, bookingUser);
-                        data.put("bookingCreated", true);
-                        data.put("classId", created != null ? created.getId() : null);
+                    if (bookingUser != null) {
+                        // The client only proposes the amount. Keep the platform fee authoritative on the server.
+                        bookingRequest.setAmount(5000.0);
+                        bookingRequest.setPaymentAmount(tx.getTransferAmount() != null
+                                ? tx.getTransferAmount().doubleValue()
+                                : bookingRequest.getPaymentAmount());
+
+                        BigDecimal transferredAmount = tx.getTransferAmount() != null
+                                ? BigDecimal.valueOf(tx.getTransferAmount())
+                                : (bookingRequest.getPaymentAmount() != null
+                                ? BigDecimal.valueOf(bookingRequest.getPaymentAmount())
+                                : BigDecimal.ZERO);
+                        ConnectionPaymentResponse payment = tutoringClassService
+                                .createAndRecordExternalConnectionPayment(bookingRequest, bookingUser, transferredAmount);
+                        data.put("bookingCreated", payment.getClassInfo() != null);
+                        data.put("classId", payment.getClassInfo() != null ? payment.getClassInfo().getId() : null);
+                        data.put("paymentApplied", true);
+                        data.put("finalAmount", payment.getFinalAmount());
+                        data.put("discountAmount", payment.getDiscountAmount());
+                        data.put("voucherCode", payment.getVoucherCode());
+                        data.put("issuedVoucher", payment.getIssuedVoucher());
+                        pendingBookingRequests.remove(key);
                     } else {
                         data.put("bookingCreated", false);
                         data.put("message", "Không thể tạo lớp học vì người dùng không tồn tại.");
@@ -357,6 +375,29 @@ public class PaymentController {
                 } catch (Exception ex) {
                     data.put("bookingCreated", false);
                     data.put("message", "Lỗi khi lưu lớp học sau thanh toán: " + ex.getMessage());
+                }
+            } else if (principal != null) {
+                // The pending request is removed after the first successful poll.
+                // Look up the persisted order so later polls remain idempotent and
+                // still return the original class id to the frontend.
+                try {
+                    User bookingUser = userRepository.findByEmailIgnoreCase(principal.getName())
+                            .or(() -> userRepository.findByEmail(principal.getName()))
+                            .orElse(null);
+                    if (bookingUser != null) {
+                        tutoringClassService.findClassByPaymentOrderCode(key, bookingUser)
+                                .ifPresent(existingClass -> {
+                                    data.put("bookingCreated", true);
+                                    data.put("classId", existingClass.getId());
+                                    data.put("paymentApplied", existingClass.getPaidAt() != null);
+                                    data.put("finalAmount", existingClass.getPaidAmount());
+                                    data.put("discountAmount", existingClass.getDiscountAmount());
+                                    data.put("voucherCode", existingClass.getVoucherCode());
+                                });
+                    }
+                } catch (Exception ex) {
+                    data.put("bookingCreated", false);
+                    data.put("message", "Không thể tra cứu booking đã thanh toán: " + ex.getMessage());
                 }
             }
 

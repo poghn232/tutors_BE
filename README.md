@@ -26,6 +26,8 @@ DB_URL=jdbc:mysql://localhost:3306/giasuhq?useSSL=false&allowPublicKeyRetrieval=
 DB_USERNAME=root
 DB_PASSWORD=<MẬT_KHẨU_MYSQL>
 CORS_ORIGINS=http://localhost:5173
+GEMINI_API_KEY=<GEMINI_API_KEY>
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
 ### 3. Chạy ứng dụng
@@ -38,6 +40,18 @@ mvn clean compile
 mvn spring-boot:run
 ```
 Ứng dụng backend sẽ khởi chạy tại: `http://localhost:8080`
+
+## AI Note, báo cáo tiến độ và voucher
+
+- `POST /api/lessons/{id}/ai-note-suggest`: tạo AI Note từ ghi chú thô của gia sư.
+- `POST /api/progress/report` hoặc `GET /api/progress/report?classId=...`: tổng hợp buổi học, bài tập và tạo báo cáo tiến độ bằng Gemini.
+- `GET /api/vouchers`: xem voucher của tài khoản.
+- `POST /api/vouchers/claim`: nhận voucher theo mã hoặc mã chia sẻ.
+- `POST /api/vouchers/{userVoucherId}/share`: tạo link chia sẻ voucher dùng một lần.
+- `POST /api/vouchers/quote`: kiểm tra mức giảm trước khi thanh toán.
+- `POST /api/classes/{id}/pay-connection-fee`: thanh toán phí kết nối, áp dụng voucher và tự phát voucher cảm ơn sau giao dịch thành công.
+
+API key chỉ được đọc ở backend qua `GEMINI_API_KEY` hoặc file `application-local.properties` bị git-ignore; không đưa key vào frontend.
 
 ---
 

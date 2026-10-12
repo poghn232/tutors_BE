@@ -31,7 +31,9 @@ public class CreateClassRequest {
     private String date;
     private String time;
     private Double amount;
+    private Double paymentAmount;
     private String orderCode;
     private String paymentMethod;
+    private String voucherCode;
     private String status;
 }

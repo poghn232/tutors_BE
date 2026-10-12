@@ -1,8 +1,10 @@
 package com.giasuhq.controller;
 
 import com.giasuhq.dto.request.CreateClassRequest;
+import com.giasuhq.dto.request.ConnectionPaymentRequest;
 import com.giasuhq.dto.response.ApiResponse;
 import com.giasuhq.dto.response.ClassResponse;
+import com.giasuhq.dto.response.ConnectionPaymentResponse;
 import com.giasuhq.entity.User;
 import com.giasuhq.repository.UserRepository;
 import com.giasuhq.service.TutoringClassService;
@@ -57,10 +59,18 @@ public class TutoringClassController {
     }
 
     @PostMapping("/{id}/pay-connection-fee")
-    public ApiResponse<ClassResponse> payConnectionFee(@PathVariable Long id, Principal principal) {
+    public ApiResponse<ConnectionPaymentResponse> payConnectionFee(
+            @PathVariable Long id,
+            @RequestBody(required = false) ConnectionPaymentRequest request,
+            Principal principal
+    ) {
         User user = getUserByPrincipal(principal);
-        ClassResponse response = tutoringClassService.payConnectionFee(id, user);
-        return ApiResponse.success("Thanh toán phí kết nối thành công. Lớp học đã được kích hoạt.", response);
+        String voucherCode = request != null ? request.getVoucherCode() : null;
+        ConnectionPaymentResponse response = tutoringClassService.payConnectionFee(id, user, voucherCode);
+        String message = response.getIssuedVoucher() != null
+                ? "Thanh toán phí kết nối thành công. Bạn được tặng voucher " + response.getIssuedVoucher().getCode() + "."
+                : "Thanh toán phí kết nối thành công. Lớp học đã được kích hoạt.";
+        return ApiResponse.success(message, response);
     }
 
     private User getUserByPrincipal(Principal principal) {

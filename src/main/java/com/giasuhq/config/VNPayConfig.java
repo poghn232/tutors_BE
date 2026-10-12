@@ -18,7 +18,7 @@ public class VNPayConfig {
     @Value("${vnpay.tmn-code:6NQ5V6GO}")
     private String tmnCode;
 
-    @Value("${vnpay.hash-secret:UBSXLCRDVNJYZBIFXYMTQTCFHRYJAAOS}")
+    @Value("${vnpay.hash-secret:}")
     private String hashSecret;
 
     @Value("${vnpay.pay-url:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}")

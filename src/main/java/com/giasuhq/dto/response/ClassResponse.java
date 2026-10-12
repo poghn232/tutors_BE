@@ -26,6 +26,9 @@ public class ClassResponse {
     private String subjectName;
     private String scheduleDescription;
     private BigDecimal connectionFee;
+    private BigDecimal discountAmount;
+    private BigDecimal paidAmount;
+    private String voucherCode;
     private LocalDateTime approvedAt;
     private LocalDateTime paidAt;
     private ClassStatus status;

@@ -2,10 +2,15 @@ package com.giasuhq.service.impl;
 
 import com.giasuhq.dto.request.CreateClassRequest;
 import com.giasuhq.dto.response.ClassResponse;
+import com.giasuhq.dto.response.ConnectionPaymentResponse;
+import com.giasuhq.dto.response.VoucherQuoteResponse;
+import com.giasuhq.dto.response.VoucherRedemptionResult;
+import com.giasuhq.dto.response.VoucherResponse;
 import com.giasuhq.entity.*;
 import com.giasuhq.exception.ResourceNotFoundException;
 import com.giasuhq.repository.*;
 import com.giasuhq.service.TutoringClassService;
+import com.giasuhq.service.VoucherService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -18,6 +23,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -33,6 +40,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     private final TutorRepository tutorRepository;
     private final ParentRepository parentRepository;
     private final LessonRepository lessonRepository;
+    private final VoucherService voucherService;
 
     @Override
     @Transactional(readOnly = true)
@@ -167,6 +175,8 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 ? BigDecimal.valueOf(request.getAmount())
                 : new BigDecimal("5000");
 
+        String paymentOrderCode = normalizePaymentOrderCode(request.getOrderCode());
+
         ClassStatus initialStatus = ClassStatus.ACTIVE;
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
             try {
@@ -188,6 +198,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .subject(subject)
                 .scheduleDescription(scheduleDesc)
                 .connectionFee(connectionFee)
+                .paymentOrderCode(paymentOrderCode)
                 .status(initialStatus)
                 .build();
 
@@ -229,7 +240,9 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             throw new IllegalArgumentException("Lớp học không ở trạng thái chờ duyệt (Trạng thái hiện tại: " + tutoringClass.getStatus() + ").");
         }
 
-        tutoringClass.setStatus(ClassStatus.PENDING_PAYMENT);
+        tutoringClass.setStatus(tutoringClass.getPaidAt() != null
+                ? ClassStatus.ACTIVE
+                : ClassStatus.PENDING_PAYMENT);
         tutoringClass.setApprovedAt(LocalDateTime.now());
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         return mapToResponse(saved);
@@ -258,7 +271,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
 
     @Override
     @Transactional
-    public ClassResponse payConnectionFee(Long id, User currentUser) {
+    public ConnectionPaymentResponse payConnectionFee(Long id, User currentUser, String voucherCode) {
         TutoringClass tutoringClass = tutoringClassRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
 
@@ -272,23 +285,195 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 ? tutoringClass.getConnectionFee()
                 : new BigDecimal("5000");
 
+        VoucherQuoteResponse quote = quoteVoucher(currentUser, voucherCode, fee);
+        BigDecimal finalAmount = quote.getFinalAmount();
+
         User payer = userRepository.findById(currentUser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin người dùng thanh toán."));
 
         BigDecimal currentBalance = payer.getBalance() != null ? payer.getBalance() : BigDecimal.ZERO;
-        if (currentBalance.compareTo(fee) < 0) {
+        if (currentBalance.compareTo(finalAmount) < 0) {
             throw new IllegalArgumentException("Số dư ví kết nối không đủ để thanh toán ("
-                    + String.format("%,.0fđ", currentBalance) + " < " + String.format("%,.0fđ", fee)
+                    + String.format("%,.0fđ", currentBalance) + " < " + String.format("%,.0fđ", finalAmount)
                     + "). Vui lòng nạp thêm tiền vào ví tại mục Ví kết nối.");
         }
 
-        payer.setBalance(currentBalance.subtract(fee));
+        VoucherRedemptionResult redemption = redeemVoucher(currentUser, voucherCode, fee, tutoringClass.getId());
+
+        payer.setBalance(currentBalance.subtract(finalAmount));
         userRepository.save(payer);
 
         tutoringClass.setStatus(ClassStatus.ACTIVE);
         tutoringClass.setPaidAt(LocalDateTime.now());
+        tutoringClass.setDiscountAmount(redemption != null ? redemption.getDiscountAmount() : BigDecimal.ZERO);
+        tutoringClass.setPaidAmount(finalAmount);
+        tutoringClass.setVoucherCode(redemption != null ? redemption.getCode() : null);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
-        return mapToResponse(saved);
+        VoucherResponse issuedVoucher = voucherService.issuePostPaymentVoucher(payer);
+        return buildPaymentResponse(saved, fee, redemption, finalAmount, issuedVoucher);
+    }
+
+    @Override
+    @Transactional
+    public ConnectionPaymentResponse recordExternalConnectionPayment(
+            Long id,
+            User currentUser,
+            BigDecimal transferredAmount,
+            String voucherCode
+    ) {
+        TutoringClass tutoringClass = tutoringClassRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
+        ensureOwner(tutoringClass, currentUser);
+
+        if (tutoringClass.getPaidAt() != null) {
+            BigDecimal fee = effectiveConnectionFee(tutoringClass);
+            return buildPaymentResponse(tutoringClass, fee, null,
+                    tutoringClass.getPaidAmount() != null ? tutoringClass.getPaidAmount() : fee, null);
+        }
+        if (tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL
+                && tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT) {
+            throw new IllegalArgumentException("Lớp học không ở trạng thái có thể ghi nhận thanh toán phí kết nối.");
+        }
+
+        BigDecimal fee = effectiveConnectionFee(tutoringClass);
+        VoucherQuoteResponse quote = quoteVoucher(currentUser, voucherCode, fee);
+        BigDecimal finalAmount = quote.getFinalAmount();
+        BigDecimal actualAmount = transferredAmount != null ? transferredAmount : BigDecimal.ZERO;
+        if (actualAmount.compareTo(finalAmount) < 0) {
+            throw new IllegalArgumentException("Số tiền chuyển khoản chưa đủ sau khi áp dụng voucher (cần "
+                    + String.format("%,.0fđ", finalAmount) + ").");
+        }
+
+        VoucherRedemptionResult redemption = redeemVoucher(currentUser, voucherCode, fee, tutoringClass.getId());
+        tutoringClass.setDiscountAmount(redemption != null ? redemption.getDiscountAmount() : BigDecimal.ZERO);
+        tutoringClass.setPaidAmount(finalAmount);
+        tutoringClass.setVoucherCode(redemption != null ? redemption.getCode() : null);
+        tutoringClass.setPaidAt(LocalDateTime.now());
+        if (tutoringClass.getStatus() == ClassStatus.PENDING_PAYMENT) {
+            tutoringClass.setStatus(ClassStatus.ACTIVE);
+        }
+        TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        VoucherResponse issuedVoucher = voucherService.issuePostPaymentVoucher(currentUser);
+        return buildPaymentResponse(saved, fee, redemption, finalAmount, issuedVoucher);
+    }
+
+    @Override
+    @Transactional
+    public synchronized ConnectionPaymentResponse createAndRecordExternalConnectionPayment(
+            CreateClassRequest request,
+            User currentUser,
+            BigDecimal transferredAmount
+    ) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin booking cần ghi nhận thanh toán.");
+        }
+        String paymentOrderCode = normalizePaymentOrderCode(request.getOrderCode());
+        if (paymentOrderCode == null) {
+            throw new IllegalArgumentException("Thiếu mã đơn hàng để ghi nhận thanh toán.");
+        }
+
+        // The payment order is the idempotency boundary. A later poll returns
+        // the already-paid class instead of creating a new class or voucher.
+        TutoringClass existingClass = tutoringClassRepository
+                .findByPaymentOrderCodeIgnoreCase(paymentOrderCode)
+                .orElse(null);
+        if (existingClass != null) {
+            ensureOwner(existingClass, currentUser);
+            if (existingClass.getPaidAt() != null) {
+                BigDecimal fee = effectiveConnectionFee(existingClass);
+                return buildPaymentResponse(
+                        existingClass,
+                        fee,
+                        null,
+                        existingClass.getPaidAmount() != null ? existingClass.getPaidAmount() : fee,
+                        null
+                );
+            }
+            return recordExternalConnectionPayment(
+                    existingClass.getId(),
+                    currentUser,
+                    transferredAmount,
+                    request.getVoucherCode()
+            );
+        }
+
+        // The platform fee is server-controlled; client-provided amount is
+        // ignored before creating the pending class.
+        request.setAmount(5000.0);
+        request.setPaymentAmount(transferredAmount != null ? transferredAmount.doubleValue() : null);
+        request.setOrderCode(paymentOrderCode);
+
+        ClassResponse created = createClass(request, currentUser);
+        return recordExternalConnectionPayment(
+                created.getId(),
+                currentUser,
+                transferredAmount,
+                request.getVoucherCode()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ClassResponse> findClassByPaymentOrderCode(String paymentOrderCode, User currentUser) {
+        String normalizedCode = normalizePaymentOrderCode(paymentOrderCode);
+        if (normalizedCode == null) {
+            return Optional.empty();
+        }
+        return tutoringClassRepository.findByPaymentOrderCodeIgnoreCase(normalizedCode)
+                .map(tutoringClass -> {
+                    ensureOwner(tutoringClass, currentUser);
+                    return mapToResponse(tutoringClass);
+                });
+    }
+
+    private VoucherQuoteResponse quoteVoucher(User user, String voucherCode, BigDecimal fee) {
+        if (voucherCode == null || voucherCode.isBlank()) {
+            return VoucherQuoteResponse.builder()
+                    .valid(true)
+                    .originalAmount(fee)
+                    .discountAmount(BigDecimal.ZERO)
+                    .finalAmount(fee)
+                    .build();
+        }
+        return voucherService.quote(user, voucherCode, fee);
+    }
+
+    private VoucherRedemptionResult redeemVoucher(User user, String voucherCode, BigDecimal fee, Long classId) {
+        if (voucherCode == null || voucherCode.isBlank()) {
+            return null;
+        }
+        return voucherService.redeem(user, voucherCode, fee, classId);
+    }
+
+    private BigDecimal effectiveConnectionFee(TutoringClass tutoringClass) {
+        return tutoringClass.getConnectionFee() != null
+                && tutoringClass.getConnectionFee().compareTo(BigDecimal.ZERO) > 0
+                ? tutoringClass.getConnectionFee()
+                : new BigDecimal("5000");
+    }
+
+    private String normalizePaymentOrderCode(String orderCode) {
+        if (orderCode == null || orderCode.isBlank()) {
+            return null;
+        }
+        return orderCode.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private ConnectionPaymentResponse buildPaymentResponse(
+            TutoringClass tutoringClass,
+            BigDecimal fee,
+            VoucherRedemptionResult redemption,
+            BigDecimal finalAmount,
+            VoucherResponse issuedVoucher
+    ) {
+        return ConnectionPaymentResponse.builder()
+                .classInfo(mapToResponse(tutoringClass))
+                .originalAmount(fee)
+                .discountAmount(redemption != null ? redemption.getDiscountAmount() : BigDecimal.ZERO)
+                .finalAmount(finalAmount)
+                .voucherCode(redemption != null ? redemption.getCode() : tutoringClass.getVoucherCode())
+                .issuedVoucher(issuedVoucher)
+                .build();
     }
 
     private void ensureCanView(TutoringClass tutoringClass, User currentUser) {
@@ -396,6 +581,9 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .subjectName(tc.getSubject() != null ? tc.getSubject().getName() : "Môn học")
                 .scheduleDescription(tc.getScheduleDescription())
                 .connectionFee(tc.getConnectionFee())
+                .discountAmount(tc.getDiscountAmount() != null ? tc.getDiscountAmount() : BigDecimal.ZERO)
+                .paidAmount(tc.getPaidAmount())
+                .voucherCode(tc.getVoucherCode())
                 .approvedAt(tc.getApprovedAt())
                 .paidAt(tc.getPaidAt())
                 .status(tc.getStatus())

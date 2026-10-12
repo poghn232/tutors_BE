@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS tutoring_classes (
     subject_id BIGINT NOT NULL,
     schedule_description VARCHAR(255),    -- Ví dụ: "Thứ 2 - Thứ 4 (18:00 - 20:00)"
     connection_fee DECIMAL(15,2) NOT NULL DEFAULT 0,
+    payment_order_code VARCHAR(80) NULL UNIQUE,
     approved_at TIMESTAMP NULL,
     paid_at TIMESTAMP NULL,
     status VARCHAR(30) DEFAULT 'PENDING_TUTOR_APPROVAL' CHECK (status IN ('PENDING_TUTOR_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'DECLINED', 'COMPLETED', 'PAUSED', 'CANCELLED')),
@@ -107,6 +108,11 @@ CREATE TABLE IF NOT EXISTS tutoring_classes (
     INDEX idx_classes_tutor (tutor_id),
     INDEX idx_classes_parent (parent_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(15,2) NOT NULL DEFAULT 0;
+ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(15,2) NULL;
+ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS voucher_code VARCHAR(80) NULL;
+ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS payment_order_code VARCHAR(80) NULL;
 
 -- 7. Lessons Table (Các Buổi học chi tiết của Lớp học)
 CREATE TABLE IF NOT EXISTS lessons (
@@ -200,6 +206,78 @@ CREATE TABLE IF NOT EXISTS learning_materials (
     INDEX idx_materials_subject (subject_name),
     INDEX idx_materials_is_vip (is_vip)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 11. Voucher campaigns, personal claims and payment redemptions
+CREATE TABLE IF NOT EXISTS vouchers (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(80) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    discount_type VARCHAR(20) NOT NULL CHECK (discount_type IN ('PERCENTAGE', 'FIXED_AMOUNT')),
+    discount_value DECIMAL(15,2) NOT NULL,
+    max_discount DECIMAL(15,2) NULL,
+    min_order_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    usage_limit INT NULL,
+    claimed_count INT NOT NULL DEFAULT 0,
+    max_claims_per_user INT NOT NULL DEFAULT 1,
+    starts_at TIMESTAMP NULL,
+    expires_at TIMESTAMP NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    shareable BOOLEAN NOT NULL DEFAULT FALSE,
+    auto_issue_on_payment BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    version BIGINT NULL,
+    INDEX idx_vouchers_active_window (active, starts_at, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_vouchers (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    voucher_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE' CHECK (status IN ('AVAILABLE', 'REDEEMED', 'EXPIRED')),
+    share_code VARCHAR(80) NULL UNIQUE,
+    claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    shared_at TIMESTAMP NULL,
+    shared_claimed_at TIMESTAMP NULL,
+    source_user_voucher_id BIGINT NULL,
+    redeemed_at TIMESTAMP NULL,
+    version BIGINT NULL,
+    CONSTRAINT fk_user_vouchers_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_vouchers_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_user_vouchers_source FOREIGN KEY (source_user_voucher_id) REFERENCES user_vouchers(id) ON DELETE SET NULL,
+    UNIQUE KEY uk_user_voucher_owner (voucher_id, user_id),
+    INDEX idx_user_vouchers_user_status (user_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voucher_redemptions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    voucher_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    user_voucher_id BIGINT NOT NULL UNIQUE,
+    class_id BIGINT NULL,
+    original_amount DECIMAL(15,2) NOT NULL,
+    discount_amount DECIMAL(15,2) NOT NULL,
+    final_amount DECIMAL(15,2) NOT NULL,
+    redeemed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_redemptions_voucher FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
+    CONSTRAINT fk_redemptions_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_redemptions_user_voucher FOREIGN KEY (user_voucher_id) REFERENCES user_vouchers(id),
+    CONSTRAINT fk_redemptions_class FOREIGN KEY (class_id) REFERENCES tutoring_classes(id) ON DELETE SET NULL,
+    INDEX idx_redemptions_user (user_id),
+    INDEX idx_redemptions_class (class_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO vouchers
+    (code, name, description, discount_type, discount_value, max_discount, min_order_amount, usage_limit, max_claims_per_user, starts_at, expires_at, active, shareable, auto_issue_on_payment)
+VALUES
+    ('PAYMENT10', 'Voucher cảm ơn thanh toán', 'Tặng sau khi người dùng hoàn tất thanh toán phí kết nối.', 'PERCENTAGE', 10, 100000, 5000, NULL, 1, CURRENT_TIMESTAMP, '2030-12-31 23:59:59', TRUE, TRUE, TRUE),
+    ('SHARE20', 'Voucher giới thiệu bạn bè', 'Chia sẻ link để người nhận được giảm 20% phí kết nối.', 'PERCENTAGE', 20, 5000, 5000, NULL, 1, CURRENT_TIMESTAMP, '2030-12-31 23:59:59', TRUE, TRUE, FALSE)
+ON DUPLICATE KEY UPDATE
+    name = VALUES(name),
+    description = VALUES(description),
+    active = VALUES(active),
+    expires_at = VALUES(expires_at);
 
 -- =========================================================
 -- Seed Data for Admin User (admin@giasuhq.com)
