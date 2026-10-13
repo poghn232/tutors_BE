@@ -34,6 +34,8 @@ public class UserProfileResponse {
     private String rejectionReason;
     private LocalDateTime verifiedAt;
     private String certificatesJson;
+    private String availableDaysJson;
+    private String availableTimesJson;
 
     // Chi tiết Phụ huynh / Con em
     private String address;

@@ -113,6 +113,8 @@ ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(15
 ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(15,2) NULL;
 ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS voucher_code VARCHAR(80) NULL;
 ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS payment_order_code VARCHAR(80) NULL;
+ALTER TABLE tutors ADD COLUMN IF NOT EXISTS available_days_json TEXT NULL;
+ALTER TABLE tutors ADD COLUMN IF NOT EXISTS available_times_json TEXT NULL;
 
 -- 7. Lessons Table (Các Buổi học chi tiết của Lớp học)
 CREATE TABLE IF NOT EXISTS lessons (

@@ -21,6 +21,8 @@ public class UpdateProfileRequest {
     private String qualification;
     private Integer experienceYears;
     private String certificatesJson;
+    private String availableDaysJson;
+    private String availableTimesJson;
 
     // Dành cho Phụ huynh
     private String address;

@@ -16,6 +16,8 @@ public record TutorResponse(
         String rejectionReason,
         LocalDateTime verifiedAt,
         String certificatesJson,
+        String availableDaysJson,
+        String availableTimesJson,
         LocalDateTime createdAt
 ) {
 }

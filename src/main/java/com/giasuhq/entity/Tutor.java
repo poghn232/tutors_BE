@@ -38,5 +38,11 @@ public class Tutor extends User {
 
     @Column(name = "certificates_json", columnDefinition = "LONGTEXT")
     private String certificatesJson;
+
+    @Column(name = "available_days_json", columnDefinition = "TEXT")
+    private String availableDaysJson;
+
+    @Column(name = "available_times_json", columnDefinition = "TEXT")
+    private String availableTimesJson;
 }
 

@@ -37,6 +37,8 @@ public class TutorMapper {
                 tutor.getRejectionReason(),
                 tutor.getVerifiedAt(),
                 tutor.getCertificatesJson(),
+                tutor.getAvailableDaysJson(),
+                tutor.getAvailableTimesJson(),
                 tutor.getCreatedAt()
         );
     }
