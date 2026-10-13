@@ -116,9 +116,24 @@ public class ProgressReportServiceImpl implements ProgressReportService {
             return tutoringClassRepository.findAllByOrderByCreatedAtDesc();
         }
         if (currentUser.getRole() == Role.TUTOR) {
-            return tutoringClassRepository.findByTutorIdOrderByCreatedAtDesc(currentUser.getId());
+        return tutoringClassRepository.findByTutorIdOrderByCreatedAtDesc(currentUser.getId()).stream()
+                .filter(this::isConnectedClass)
+                .collect(Collectors.toList());
         }
-        return tutoringClassRepository.findByParentIdOrderByCreatedAtDesc(currentUser.getId());
+        return tutoringClassRepository.findByParentIdOrderByCreatedAtDesc(currentUser.getId()).stream()
+                .filter(this::isConnectedClass)
+                .collect(Collectors.toList());
+    }
+
+    private boolean isConnectedClass(TutoringClass tutoringClass) {
+        if (tutoringClass == null) {
+            return false;
+        }
+        return tutoringClass.getPaidAt() != null
+                || tutoringClass.getStatus() == ClassStatus.PENDING_PAYMENT
+                || tutoringClass.getStatus() == ClassStatus.ACTIVE
+                || tutoringClass.getStatus() == ClassStatus.PAUSED
+                || tutoringClass.getStatus() == ClassStatus.COMPLETED;
     }
 
     private List<Assignment> loadAssignments(User currentUser) {

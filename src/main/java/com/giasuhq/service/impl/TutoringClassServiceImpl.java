@@ -121,12 +121,12 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         } else {
             Long tutorId = request.getTutorId();
             if (tutorId == null) {
-                tutor = tutorRepository.findAll().stream().findFirst().orElse(null);
+                throw new IllegalArgumentException("Vui lòng chọn đúng gia sư cho yêu cầu kết nối.");
             } else {
                 tutor = tutorRepository.findById(tutorId).orElse(null);
             }
             if (tutor == null) {
-                tutor = tutorRepository.findAll().stream().findFirst().orElse(null);
+                throw new IllegalArgumentException("Không tìm thấy gia sư đã chọn trong hệ thống.");
             }
         }
         if (tutor == null) {
