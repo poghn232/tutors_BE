@@ -23,7 +23,8 @@ public class TutorServiceImpl implements TutorService {
 
     @Override
     public List<TutorResponse> findAll() {
-        return tutorRepository.findAll()
+        // Public catalog must only expose profiles approved by Admin.
+        return tutorRepository.findByVerificationStatusIgnoreCaseOrderByCreatedAtDesc("APPROVED")
                 .stream()
                 .map(tutorMapper::toResponse)
                 .toList();

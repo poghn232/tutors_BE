@@ -8,6 +8,8 @@ import java.util.Optional;
 
 @Repository
 public interface TutorRepository extends JpaRepository<Tutor, Long> {
+    List<Tutor> findByVerificationStatusIgnoreCaseOrderByCreatedAtDesc(String verificationStatus);
+
     Optional<Tutor> findByEmail(String email);
     Optional<Tutor> findByEmailIgnoreCase(String email);
     Optional<Tutor> findFirstByFullNameContainingIgnoreCase(String name);
