@@ -43,7 +43,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     private final VoucherService voucherService;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ClassResponse> getClassesForUser(User currentUser) {
         List<TutoringClass> classes;
         Role role = currentUser.getRole();
@@ -52,6 +52,18 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             classes = tutoringClassRepository.findAllByOrderByCreatedAtDesc();
         } else if (role == Role.TUTOR) {
             classes = tutoringClassRepository.findByTutorIdOrderByCreatedAtDesc(currentUser.getId());
+            boolean repairedLegacyPaidRequests = false;
+            for (TutoringClass tutoringClass : classes) {
+                if (tutoringClass.getPaidAt() != null
+                        && tutoringClass.getApprovedAt() == null
+                        && tutoringClass.getStatus() == ClassStatus.ACTIVE) {
+                    tutoringClass.setStatus(ClassStatus.PENDING_TUTOR_APPROVAL);
+                    repairedLegacyPaidRequests = true;
+                }
+            }
+            if (repairedLegacyPaidRequests) {
+                classes = tutoringClassRepository.saveAll(classes);
+            }
         } else {
             classes = tutoringClassRepository.findByParentIdOrderByCreatedAtDesc(currentUser.getId());
         }
