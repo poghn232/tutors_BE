@@ -34,6 +34,14 @@ public class DataMigrationRunner implements CommandLineRunner {
                 MODIFY COLUMN status VARCHAR(40) NOT NULL DEFAULT 'PENDING_TUTOR_APPROVAL'
                 """));
 
+        // Older production databases still have the removed student_id column.
+        // Keep it nullable so the current parent/student_name model can insert
+        // classes before the legacy column is safely removed manually.
+        runMigration("make legacy student link nullable", () -> jdbcTemplate.execute("""
+                ALTER TABLE tutoring_classes
+                MODIFY COLUMN student_id BIGINT NULL
+                """));
+
         runMigration("convert legacy student roles", () -> {
             int updated = jdbcTemplate.update("UPDATE users SET role = 'PARENT' WHERE role = 'STUDENT'");
             if (updated > 0) {
