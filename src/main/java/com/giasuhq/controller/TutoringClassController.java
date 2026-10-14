@@ -48,7 +48,7 @@ public class TutoringClassController {
     public ApiResponse<ClassResponse> acceptClass(@PathVariable Long id, Principal principal) {
         User user = getUserByPrincipal(principal);
         ClassResponse response = tutoringClassService.acceptClass(id, user);
-        return ApiResponse.success("Gia sư đã chấp nhận lịch học. Phụ huynh/học sinh có thể thanh toán phí kết nối.", response);
+        return ApiResponse.success("Gia sư đã xác nhận lịch học. Phí kết nối ban đầu đã được ghi nhận và lớp học đã kích hoạt.", response);
     }
 
     @PostMapping("/{id}/decline")
@@ -68,8 +68,8 @@ public class TutoringClassController {
         String voucherCode = request != null ? request.getVoucherCode() : null;
         ConnectionPaymentResponse response = tutoringClassService.payConnectionFee(id, user, voucherCode);
         String message = response.getIssuedVoucher() != null
-                ? "Thanh toán phí kết nối thành công. Bạn được tặng voucher " + response.getIssuedVoucher().getCode() + "."
-                : "Thanh toán phí kết nối thành công. Lớp học đã được kích hoạt.";
+                ? "Thanh toán phí kết nối ban đầu thành công. Bạn được tặng voucher " + response.getIssuedVoucher().getCode() + "."
+                : "Phí kết nối ban đầu đã được ghi nhận. Không cần thanh toán lại.";
         return ApiResponse.success(message, response);
     }
 

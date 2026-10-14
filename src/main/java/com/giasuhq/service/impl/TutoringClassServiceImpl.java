@@ -40,7 +40,6 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     private final TutorRepository tutorRepository;
     private final ParentRepository parentRepository;
     private final LessonRepository lessonRepository;
-    private final SepayConfirmedOrderRepository sepayConfirmedOrderRepository;
     private final VoucherService voucherService;
 
     @Override
@@ -52,10 +51,14 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         if (role == Role.ADMIN) {
             classes = tutoringClassRepository.findAllByOrderByCreatedAtDesc();
         } else if (role == Role.TUTOR) {
-            classes = tutoringClassRepository.findByTutorIdOrderByCreatedAtDesc(currentUser.getId());
+            classes = new ArrayList<>(tutoringClassRepository.findByTutorIdOrderByCreatedAtDesc(currentUser.getId()));
+            // Checkout bookings are stored before SePay confirms the transfer
+            // so a browser refresh or deploy can recover them. They must not
+            // appear in the tutor queue until the upfront fee is recorded.
+            classes.removeIf(this::isUnpaidCheckoutBooking);
             boolean repairedLegacyPaidRequests = false;
             for (TutoringClass tutoringClass : classes) {
-                if (tutoringClass.getPaidAt() != null
+                if (hasRecordedConnectionPayment(tutoringClass)
                         && tutoringClass.getApprovedAt() == null
                         && tutoringClass.getStatus() != ClassStatus.DECLINED
                         && tutoringClass.getStatus() != ClassStatus.CANCELLED
@@ -69,10 +72,6 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             }
         } else {
             classes = tutoringClassRepository.findByParentIdOrderByCreatedAtDesc(currentUser.getId());
-        }
-
-        if (role == Role.PARENT) {
-            reconcileConfirmedPayments(classes, currentUser);
         }
 
         boolean repairedPaymentStates = false;
@@ -226,8 +225,11 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             } catch (Exception e) {
                 initialStatus = ClassStatus.ACTIVE;
             }
-        } else if (currentUser.getRole() == Role.PARENT && request.getOrderCode() != null && !request.getOrderCode().isBlank()) {
-            initialStatus = ClassStatus.PENDING_TUTOR_APPROVAL;
+        } else if (currentUser.getRole() == Role.PARENT && paymentOrderCode != null) {
+            // The connection fee is paid before the tutor sees or accepts the
+            // request. The payment callback changes this to
+            // PENDING_TUTOR_APPROVAL after recording the transfer.
+            initialStatus = ClassStatus.PENDING_PAYMENT;
         }
 
         TutoringClass tutoringClass = TutoringClass.builder()
@@ -282,9 +284,15 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             throw new IllegalArgumentException("Lớp học không ở trạng thái chờ duyệt (Trạng thái hiện tại: " + tutoringClass.getStatus() + ").");
         }
 
-        tutoringClass.setStatus(hasRecordedConnectionPayment(tutoringClass)
-                ? ClassStatus.ACTIVE
-                : ClassStatus.PENDING_PAYMENT);
+        if (!hasRecordedConnectionPayment(tutoringClass)) {
+            throw new IllegalArgumentException(
+                    "Chưa ghi nhận phí kết nối ban đầu. Phụ huynh cần hoàn tất thanh toán trước khi gia sư xác nhận lịch học."
+            );
+        }
+
+        // The connection fee has already been paid during booking. Tutor
+        // acceptance only activates the class; it never starts another charge.
+        tutoringClass.setStatus(ClassStatus.ACTIVE);
         tutoringClass.setApprovedAt(LocalDateTime.now());
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         return mapToResponse(saved);
@@ -325,45 +333,11 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                     tutoringClass.getPaidAmount() != null ? tutoringClass.getPaidAmount() : fee, null);
         }
 
-        ConnectionPaymentResponse recoveredPayment = recoverConfirmedPayment(tutoringClass, currentUser);
-        if (recoveredPayment != null) {
-            return recoveredPayment;
-        }
-
-        if (tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT) {
-            throw new IllegalArgumentException("Lớp học không ở trạng thái chờ thanh toán phí kết nối (Trạng thái hiện tại: " + tutoringClass.getStatus() + ").");
-        }
-
-        BigDecimal fee = tutoringClass.getConnectionFee() != null && tutoringClass.getConnectionFee().compareTo(BigDecimal.ZERO) > 0
-                ? tutoringClass.getConnectionFee()
-                : new BigDecimal("5000");
-
-        VoucherQuoteResponse quote = quoteVoucher(currentUser, voucherCode, fee);
-        BigDecimal finalAmount = quote.getFinalAmount();
-
-        User payer = userRepository.findById(currentUser.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin người dùng thanh toán."));
-
-        BigDecimal currentBalance = payer.getBalance() != null ? payer.getBalance() : BigDecimal.ZERO;
-        if (currentBalance.compareTo(finalAmount) < 0) {
-            throw new IllegalArgumentException("Số dư ví kết nối không đủ để thanh toán ("
-                    + String.format("%,.0fđ", currentBalance) + " < " + String.format("%,.0fđ", finalAmount)
-                    + "). Vui lòng nạp thêm tiền vào ví tại mục Ví kết nối.");
-        }
-
-        VoucherRedemptionResult redemption = redeemVoucher(currentUser, voucherCode, fee, tutoringClass.getId());
-
-        payer.setBalance(currentBalance.subtract(finalAmount));
-        userRepository.save(payer);
-
-        tutoringClass.setStatus(ClassStatus.ACTIVE);
-        tutoringClass.setPaidAt(LocalDateTime.now());
-        tutoringClass.setDiscountAmount(redemption != null ? redemption.getDiscountAmount() : BigDecimal.ZERO);
-        tutoringClass.setPaidAmount(finalAmount);
-        tutoringClass.setVoucherCode(redemption != null ? redemption.getCode() : null);
-        TutoringClass saved = tutoringClassRepository.save(tutoringClass);
-        VoucherResponse issuedVoucher = voucherService.issuePostPaymentVoucher(payer);
-        return buildPaymentResponse(saved, fee, redemption, finalAmount, issuedVoucher);
+        // Kept for old clients so a stale bundle cannot charge the parent a
+        // second time. New bookings are always paid in CheckoutFlow/SePay.
+        throw new IllegalArgumentException(
+                "Phí kết nối được thanh toán một lần ở bước đăng ký. Không cần thanh toán lại sau khi gia sư xác nhận."
+        );
     }
 
     @Override
@@ -412,8 +386,10 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             tutoringClass.setStatus(ClassStatus.ACTIVE);
         }
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
-        VoucherResponse issuedVoucher = voucherService.issuePostPaymentVoucher(currentUser);
-        return buildPaymentResponse(saved, fee, redemption, finalAmount, issuedVoucher);
+        // Do not make the paid booking transaction depend on optional voucher
+        // issuance. The connection payment must remain durable even if the
+        // promotion tables are unavailable or a voucher cannot be issued.
+        return buildPaymentResponse(saved, fee, redemption, finalAmount, null);
     }
 
     @Override
@@ -471,58 +447,17 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         );
     }
 
-    private void reconcileConfirmedPayments(List<TutoringClass> classes, User currentUser) {
-        for (TutoringClass tutoringClass : classes) {
-            if (hasRecordedConnectionPayment(tutoringClass)
-                    || tutoringClass.getPaymentOrderCode() == null
-                    || tutoringClass.getPaymentOrderCode().isBlank()
-                    || (tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL
-                    && tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT
-                    && tutoringClass.getStatus() != ClassStatus.ACTIVE)) {
-                continue;
-            }
-
-            try {
-                sepayConfirmedOrderRepository.findById(tutoringClass.getPaymentOrderCode().trim().toUpperCase(Locale.ROOT))
-                        .ifPresent(order -> {
-                            if (order.getTransferAmount() != null) {
-                                recordExternalConnectionPayment(
-                                        tutoringClass.getId(),
-                                        currentUser,
-                                        BigDecimal.valueOf(order.getTransferAmount()),
-                                        tutoringClass.getVoucherCode());
-                            }
-                        });
-            } catch (Exception ex) {
-                log.warn("Could not reconcile confirmed payment for class {}: {}", tutoringClass.getId(), ex.getMessage());
-            }
-        }
-    }
-
-    private ConnectionPaymentResponse recoverConfirmedPayment(TutoringClass tutoringClass, User currentUser) {
-        if (tutoringClass.getPaymentOrderCode() == null || tutoringClass.getPaymentOrderCode().isBlank()) {
-            return null;
-        }
-        try {
-            return sepayConfirmedOrderRepository.findById(
-                            tutoringClass.getPaymentOrderCode().trim().toUpperCase(Locale.ROOT))
-                    .filter(order -> order.getTransferAmount() != null)
-                    .map(order -> recordExternalConnectionPayment(
-                            tutoringClass.getId(),
-                            currentUser,
-                            BigDecimal.valueOf(order.getTransferAmount()),
-                            tutoringClass.getVoucherCode()))
-                    .orElse(null);
-        } catch (Exception ex) {
-            log.warn("Could not recover confirmed payment for class {}: {}", tutoringClass.getId(), ex.getMessage());
-            return null;
-        }
-    }
-
     private boolean hasRecordedConnectionPayment(TutoringClass tutoringClass) {
         return tutoringClass.getPaidAt() != null
                 || (tutoringClass.getPaidAmount() != null
                 && tutoringClass.getPaidAmount().compareTo(BigDecimal.ZERO) > 0);
+    }
+
+    private boolean isUnpaidCheckoutBooking(TutoringClass tutoringClass) {
+        boolean hasCheckoutOrder = tutoringClass.getPaymentOrderCode() != null
+                && !tutoringClass.getPaymentOrderCode().isBlank();
+        return !hasRecordedConnectionPayment(tutoringClass)
+                && (hasCheckoutOrder || tutoringClass.getStatus() == ClassStatus.PENDING_TUTOR_APPROVAL);
     }
 
     @Override
