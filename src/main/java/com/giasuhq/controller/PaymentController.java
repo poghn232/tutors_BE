@@ -21,7 +21,9 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
+import com.giasuhq.entity.SepayConfirmedOrder;
 import com.giasuhq.entity.User;
+import com.giasuhq.repository.SepayConfirmedOrderRepository;
 import com.giasuhq.repository.UserRepository;
 import com.giasuhq.service.UserService;
 import java.security.Principal;
@@ -34,6 +36,7 @@ public class PaymentController {
 
     private final VNPayConfig vnPayConfig;
     private final UserRepository userRepository;
+    private final SepayConfirmedOrderRepository sepayConfirmedOrderRepository;
     private final UserService userService;
     private final TutoringClassService tutoringClassService;
     private static final Map<String, SepayWebhookRequest> confirmedSepayOrders = new ConcurrentHashMap<>();
@@ -280,10 +283,10 @@ public class PaymentController {
 
         String content = payload.getContent() != null ? payload.getContent() : "";
         if (payload.getCode() != null && !payload.getCode().isEmpty()) {
-            confirmedSepayOrders.put(payload.getCode().toUpperCase().trim(), payload);
+            rememberConfirmedSepayOrder(payload.getCode(), payload);
         }
         if (payload.getId() != null) {
-            confirmedSepayOrders.put(String.valueOf(payload.getId()), payload);
+            rememberConfirmedSepayOrder(String.valueOf(payload.getId()), payload);
         }
 
         // Search for order code inside content (e.g. TUTORA1024 or VIP1024)
@@ -291,7 +294,7 @@ public class PaymentController {
         Matcher matcher = pattern.matcher(content);
         while (matcher.find()) {
             String extractedCode = matcher.group(1).toUpperCase().trim();
-            confirmedSepayOrders.put(extractedCode, payload);
+            rememberConfirmedSepayOrder(extractedCode, payload);
         }
 
         result.put("success", true);
@@ -342,10 +345,10 @@ public class PaymentController {
     ) {
         Map<String, Object> data = new HashMap<>();
         String key = orderCode.toUpperCase().trim();
-        boolean isPaid = confirmedSepayOrders.containsKey(key);
+        SepayWebhookRequest tx = findConfirmedSepayOrder(key);
+        boolean isPaid = tx != null;
         data.put("paid", isPaid);
         if (isPaid) {
-            SepayWebhookRequest tx = confirmedSepayOrders.get(key);
             data.put("amount", tx.getTransferAmount());
             data.put("transactionDate", tx.getTransactionDate());
             data.put("referenceCode", tx.getReferenceCode());
@@ -446,6 +449,55 @@ public class PaymentController {
             }
         }
         return ApiResponse.success("Kiểm tra trạng thái SePay", data);
+    }
+
+    private void rememberConfirmedSepayOrder(String orderCode, SepayWebhookRequest payload) {
+        if (orderCode == null || orderCode.isBlank() || payload == null) {
+            return;
+        }
+        String key = orderCode.toUpperCase().trim();
+        confirmedSepayOrders.put(key, payload);
+        try {
+            sepayConfirmedOrderRepository.save(SepayConfirmedOrder.builder()
+                    .orderCode(key)
+                    .webhookId(payload.getId())
+                    .gateway(payload.getGateway())
+                    .transactionDate(payload.getTransactionDate())
+                    .accountNumber(payload.getAccountNumber())
+                    .transferAmount(payload.getTransferAmount())
+                    .referenceCode(payload.getReferenceCode())
+                    .content(payload.getContent())
+                    .build());
+        } catch (Exception ignored) {
+            // The current backend instance can still confirm from its in-memory copy.
+        }
+    }
+
+    private SepayWebhookRequest findConfirmedSepayOrder(String orderCode) {
+        SepayWebhookRequest cached = confirmedSepayOrders.get(orderCode);
+        if (cached != null) {
+            return cached;
+        }
+        try {
+            return sepayConfirmedOrderRepository.findById(orderCode)
+                    .map(order -> {
+                        SepayWebhookRequest restored = SepayWebhookRequest.builder()
+                                .id(order.getWebhookId())
+                                .gateway(order.getGateway())
+                                .transactionDate(order.getTransactionDate())
+                                .accountNumber(order.getAccountNumber())
+                                .transferAmount(order.getTransferAmount())
+                                .referenceCode(order.getReferenceCode())
+                                .content(order.getContent())
+                                .code(order.getOrderCode())
+                                .build();
+                        confirmedSepayOrders.put(orderCode, restored);
+                        return restored;
+                    })
+                    .orElse(null);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private User resolveBookingUser(Principal principal, CreateClassRequest request) {

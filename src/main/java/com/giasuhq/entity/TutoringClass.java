@@ -74,7 +74,7 @@ public class TutoringClass {
     private LocalDateTime approvedAt;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 40)
     private ClassStatus status;
 
     @Column(name = "created_at", updatable = false)

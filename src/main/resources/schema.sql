@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS tutoring_classes (
     payment_order_code VARCHAR(80) NULL UNIQUE,
     approved_at TIMESTAMP NULL,
     paid_at TIMESTAMP NULL,
-    status VARCHAR(30) DEFAULT 'PENDING_TUTOR_APPROVAL' CHECK (status IN ('PENDING_TUTOR_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'DECLINED', 'COMPLETED', 'PAUSED', 'CANCELLED')),
+    status VARCHAR(40) DEFAULT 'PENDING_TUTOR_APPROVAL' CHECK (status IN ('PENDING_TUTOR_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE', 'DECLINED', 'COMPLETED', 'PAUSED', 'CANCELLED')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_classes_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id),
     CONSTRAINT fk_classes_parent FOREIGN KEY (parent_id) REFERENCES parents(user_id),
@@ -113,8 +113,22 @@ ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(15
 ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS paid_amount DECIMAL(15,2) NULL;
 ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS voucher_code VARCHAR(80) NULL;
 ALTER TABLE tutoring_classes ADD COLUMN IF NOT EXISTS payment_order_code VARCHAR(80) NULL;
+ALTER TABLE tutoring_classes MODIFY COLUMN status VARCHAR(40) NOT NULL DEFAULT 'PENDING_TUTOR_APPROVAL';
 ALTER TABLE tutors ADD COLUMN IF NOT EXISTS available_days_json TEXT NULL;
 ALTER TABLE tutors ADD COLUMN IF NOT EXISTS available_times_json TEXT NULL;
+
+-- Durable SePay confirmations keep paid orders recoverable across deploys/restarts.
+CREATE TABLE IF NOT EXISTS sepay_confirmed_orders (
+    order_code VARCHAR(80) PRIMARY KEY,
+    webhook_id BIGINT NULL,
+    gateway VARCHAR(80) NULL,
+    transaction_date VARCHAR(80) NULL,
+    account_number VARCHAR(80) NULL,
+    transfer_amount BIGINT NULL,
+    reference_code VARCHAR(160) NULL,
+    content TEXT NULL,
+    confirmed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 7. Lessons Table (Các Buổi học chi tiết của Lớp học)
 CREATE TABLE IF NOT EXISTS lessons (
