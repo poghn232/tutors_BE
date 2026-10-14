@@ -6,6 +6,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -42,6 +44,8 @@ public class DataMigrationRunner implements CommandLineRunner {
                 MODIFY COLUMN student_id BIGINT NULL
                 """));
 
+        runMigration("repair tutoring class status constraint", this::repairTutoringClassStatusConstraint);
+
         runMigration("convert legacy student roles", () -> {
             int updated = jdbcTemplate.update("UPDATE users SET role = 'PARENT' WHERE role = 'STUDENT'");
             if (updated > 0) {
@@ -71,5 +75,32 @@ public class DataMigrationRunner implements CommandLineRunner {
         } catch (Exception e) {
             log.warn("Production migration '{}' notice: {}", name, e.getMessage());
         }
+    }
+
+    private void repairTutoringClassStatusConstraint() {
+        List<String> statusConstraints = jdbcTemplate.query("""
+                SELECT tc.CONSTRAINT_NAME
+                FROM information_schema.TABLE_CONSTRAINTS tc
+                LEFT JOIN information_schema.CHECK_CONSTRAINTS cc
+                  ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+                 AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+                WHERE tc.CONSTRAINT_SCHEMA = DATABASE()
+                  AND tc.TABLE_NAME = 'tutoring_classes'
+                  AND tc.CONSTRAINT_TYPE = 'CHECK'
+                  AND LOWER(COALESCE(cc.CHECK_CLAUSE, '')) LIKE '%status%'
+                """, (rs, rowNum) -> rs.getString("CONSTRAINT_NAME"));
+
+        for (String constraintName : statusConstraints) {
+            String escapedName = constraintName.replace("`", "``");
+            jdbcTemplate.execute("ALTER TABLE tutoring_classes DROP CHECK `" + escapedName + "`");
+        }
+
+        jdbcTemplate.execute("""
+                ALTER TABLE tutoring_classes
+                ADD CONSTRAINT chk_tutoring_classes_status CHECK (
+                    status IN ('PENDING_TUTOR_APPROVAL', 'PENDING_PAYMENT', 'ACTIVE',
+                               'DECLINED', 'COMPLETED', 'PAUSED', 'CANCELLED')
+                )
+                """);
     }
 }
