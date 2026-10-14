@@ -56,7 +56,9 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             for (TutoringClass tutoringClass : classes) {
                 if (tutoringClass.getPaidAt() != null
                         && tutoringClass.getApprovedAt() == null
-                        && tutoringClass.getStatus() == ClassStatus.ACTIVE) {
+                        && tutoringClass.getStatus() != ClassStatus.DECLINED
+                        && tutoringClass.getStatus() != ClassStatus.CANCELLED
+                        && tutoringClass.getStatus() != ClassStatus.COMPLETED) {
                     tutoringClass.setStatus(ClassStatus.PENDING_TUTOR_APPROVAL);
                     repairedLegacyPaidRequests = true;
                 }
