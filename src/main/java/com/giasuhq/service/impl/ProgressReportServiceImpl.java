@@ -133,7 +133,8 @@ public class ProgressReportServiceImpl implements ProgressReportService {
             return false;
         }
         return tutoringClass.getPaidAt() != null
-                || tutoringClass.getStatus() == ClassStatus.PENDING_PAYMENT
+                || (tutoringClass.getPaidAmount() != null
+                && tutoringClass.getPaidAmount().compareTo(BigDecimal.ZERO) > 0)
                 || tutoringClass.getStatus() == ClassStatus.ACTIVE
                 || tutoringClass.getStatus() == ClassStatus.PAUSED
                 || tutoringClass.getStatus() == ClassStatus.COMPLETED;
