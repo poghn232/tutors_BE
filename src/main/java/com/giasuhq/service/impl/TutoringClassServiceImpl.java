@@ -386,10 +386,15 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             tutoringClass.setStatus(ClassStatus.ACTIVE);
         }
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
-        // Do not make the paid booking transaction depend on optional voucher
-        // issuance. The connection payment must remain durable even if the
-        // promotion tables are unavailable or a voucher cannot be issued.
-        return buildPaymentResponse(saved, fee, redemption, finalAmount, null);
+        // Voucher issuance is optional and runs in its own transaction so a
+        // promotion-table problem cannot roll back the already-recorded fee.
+        VoucherResponse issuedVoucher = null;
+        try {
+            issuedVoucher = voucherService.issuePostPaymentVoucher(currentUser);
+        } catch (RuntimeException ex) {
+            log.warn("Could not issue post-payment voucher for user {}: {}", currentUser.getId(), ex.getMessage());
+        }
+        return buildPaymentResponse(saved, fee, redemption, finalAmount, issuedVoucher);
     }
 
     @Override
