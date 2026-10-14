@@ -349,7 +349,12 @@ public class TutoringClassServiceImpl implements TutoringClassService {
         tutoringClass.setPaidAmount(finalAmount);
         tutoringClass.setVoucherCode(redemption != null ? redemption.getCode() : null);
         tutoringClass.setPaidAt(LocalDateTime.now());
-        if (tutoringClass.getStatus() == ClassStatus.PENDING_PAYMENT) {
+        // Payment and tutor acceptance are separate business decisions.
+        // approvedAt is the durable source of truth for tutor acceptance:
+        // without it, a paid request must remain visible in the tutor queue.
+        if (tutoringClass.getApprovedAt() == null) {
+            tutoringClass.setStatus(ClassStatus.PENDING_TUTOR_APPROVAL);
+        } else {
             tutoringClass.setStatus(ClassStatus.ACTIVE);
         }
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
