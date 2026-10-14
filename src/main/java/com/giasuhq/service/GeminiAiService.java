@@ -37,13 +37,13 @@ public class GeminiAiService {
     }
 
     public GenerateAiNoteResponse generateLessonNote(String subjectName, String studentName, String lessonTitle, String rawNote) {
-        if (apiKey == null || apiKey.isBlank()) {
+        if (!hasUsableApiKey()) {
             log.warn("GEMINI_API_KEY chưa được cấu hình; sử dụng fallback cho AI Note.");
             return fallbackResponse(rawNote);
         }
-        String prompt = buildPrompt(subjectName, studentName, lessonTitle, rawNote);
 
         try {
+            String prompt = buildPrompt(subjectName, studentName, lessonTitle, rawNote);
             String endpoint = String.format("%s/%s:generateContent", baseUrl, model);
 
             Map<String, Object> requestBody = new HashMap<>();
@@ -79,12 +79,14 @@ public class GeminiAiService {
                     JsonNode textNode = candidatesNode.get(0).path("content").path("parts").get(0).path("text");
                     if (!textNode.isMissingNode()) {
                         String generatedJsonText = cleanJsonString(textNode.asText());
-                        return objectMapper.readValue(generatedJsonText, GenerateAiNoteResponse.class);
+                        GenerateAiNoteResponse response = objectMapper.readValue(generatedJsonText, GenerateAiNoteResponse.class);
+                        response.setAiGenerated(true);
+                        return response;
                     }
                 }
             }
         } catch (Exception e) {
-            log.error("Lỗi khi gọi Gemini API để tạo Lesson Note: {}", e.getMessage(), e);
+            log.warn("Không thể gọi Gemini cho Lesson Note, chuyển sang fallback: {}", e.getMessage());
         }
 
         // Fallback tự động nếu có lỗi hoặc mất kết nối
@@ -96,13 +98,13 @@ public class GeminiAiService {
             String subjectName,
             String progressContext
     ) {
-        if (apiKey == null || apiKey.isBlank()) {
+        if (!hasUsableApiKey()) {
             log.warn("GEMINI_API_KEY chưa được cấu hình; sử dụng fallback cho báo cáo tiến độ.");
             return fallbackProgressResponse(studentName, progressContext);
         }
 
-        String prompt = buildProgressPrompt(studentName, subjectName, progressContext);
         try {
+            String prompt = buildProgressPrompt(studentName, subjectName, progressContext);
             String endpoint = String.format("%s/%s:generateContent", baseUrl, model);
             Map<String, Object> requestBody = new HashMap<>();
             Map<String, Object> part = Map.of("text", prompt);
@@ -129,10 +131,12 @@ public class GeminiAiService {
 
             String generatedJson = extractText(rawResponse);
             if (generatedJson != null && !generatedJson.isBlank()) {
-                return objectMapper.readValue(cleanJsonString(generatedJson), ProgressAiReportResponse.class);
+                ProgressAiReportResponse response = objectMapper.readValue(cleanJsonString(generatedJson), ProgressAiReportResponse.class);
+                response.setAiGenerated(true);
+                return response;
             }
         } catch (Exception e) {
-            log.error("Lỗi khi gọi Gemini API để tạo báo cáo tiến độ: {}", e.getMessage(), e);
+            log.warn("Không thể gọi Gemini cho báo cáo tiến độ, chuyển sang fallback: {}", e.getMessage());
         }
 
         return fallbackProgressResponse(studentName, progressContext);
@@ -163,6 +167,17 @@ public class GeminiAiService {
                 lessonTitle != null ? lessonTitle : "Buổi học",
                 rawNote
         );
+    }
+
+    private boolean hasUsableApiKey() {
+        if (apiKey == null) {
+            return false;
+        }
+        String normalizedKey = apiKey.trim();
+        return !normalizedKey.isBlank()
+                && !normalizedKey.startsWith("${")
+                && !normalizedKey.equalsIgnoreCase("your_gemini_api_key")
+                && !normalizedKey.equalsIgnoreCase("changeme");
     }
 
     private String cleanJsonString(String raw) {
@@ -255,6 +270,7 @@ public class GeminiAiService {
                 .aiSummary("📌 [AI Note Tóm tắt]: Buổi học đã hoàn thành tốt. Gia sư đã giảng dạy các nội dung trọng tâm: " + rawNote)
                 .keyLearnings("Nắm vững định lý, khái niệm cốt lõi và các dạng bài tập thực hành trong buổi học.")
                 .areasForImprovement("Cần rèn luyện thêm bài tập tự luyện và chuẩn bị bài mới trước buổi học kế tiếp.")
+                .aiGenerated(false)
                 .build();
     }
 
@@ -267,6 +283,7 @@ public class GeminiAiService {
                 .areasForImprovement("Tiếp tục cập nhật ghi chú sau mỗi buổi học và hoàn thành bài tập đúng hạn để báo cáo chính xác hơn.")
                 .nextSteps("Ôn lại nội dung của buổi gần nhất; hoàn thành bài tập còn mở; đặt mục tiêu cụ thể cho buổi học kế tiếp.")
                 .motivation("Mỗi buổi học đều là một bước tiến. Hãy giữ nhịp học đều đặn và hỏi ngay khi gặp phần chưa rõ.")
+                .aiGenerated(false)
                 .build();
     }
 }

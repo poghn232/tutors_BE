@@ -30,5 +30,6 @@ public class ProgressReportResponse {
     private int overdueAssignments;
     private BigDecimal averageAssignmentScore;
     private List<ProgressClassResponse> classes;
+    private List<ProgressLessonNoteResponse> lessonNotes;
     private ProgressAiReportResponse aiReport;
 }

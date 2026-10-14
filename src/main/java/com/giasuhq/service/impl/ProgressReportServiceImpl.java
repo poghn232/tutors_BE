@@ -2,6 +2,7 @@ package com.giasuhq.service.impl;
 
 import com.giasuhq.dto.response.ProgressAiReportResponse;
 import com.giasuhq.dto.response.ProgressClassResponse;
+import com.giasuhq.dto.response.ProgressLessonNoteResponse;
 import com.giasuhq.dto.response.ProgressReportResponse;
 import com.giasuhq.entity.*;
 import com.giasuhq.exception.ResourceNotFoundException;
@@ -64,6 +65,7 @@ public class ProgressReportServiceImpl implements ProgressReportService {
         List<ProgressClassResponse> classProgress = classes.stream()
                 .map(item -> mapClassProgress(item, reportAssignments))
                 .collect(Collectors.toList());
+        List<ProgressLessonNoteResponse> lessonNotes = loadLessonNotes(classes);
 
         int totalLessons = classProgress.stream().mapToInt(ProgressClassResponse::getTotalLessons).sum();
         int completedLessons = classProgress.stream().mapToInt(ProgressClassResponse::getCompletedLessons).sum();
@@ -87,7 +89,7 @@ public class ProgressReportServiceImpl implements ProgressReportService {
 
         String studentName = resolveStudentName(currentUser, classes, classId);
         String subjectName = resolveSubjectName(classes, classId);
-        String context = buildAiContext(classProgress, assignments);
+        String context = buildAiContext(classProgress, assignments, lessonNotes);
         ProgressAiReportResponse aiReport = geminiAiService.generateProgressReport(studentName, subjectName, context);
 
         return ProgressReportResponse.builder()
@@ -107,6 +109,7 @@ public class ProgressReportServiceImpl implements ProgressReportService {
                 .overdueAssignments(overdueAssignments)
                 .averageAssignmentScore(averageScore)
                 .classes(classProgress)
+                .lessonNotes(lessonNotes)
                 .aiReport(aiReport)
                 .build();
     }
@@ -184,7 +187,48 @@ public class ProgressReportServiceImpl implements ProgressReportService {
                 .build();
     }
 
-    private String buildAiContext(List<ProgressClassResponse> classProgress, List<Assignment> assignments) {
+    private List<ProgressLessonNoteResponse> loadLessonNotes(List<TutoringClass> classes) {
+        return classes.stream()
+                .flatMap(tutoringClass -> lessonRepository.findByTutoringClassIdOrderByStartTimeDesc(tutoringClass.getId())
+                        .stream()
+                        .flatMap(lesson -> lessonNoteRepository.findByLessonId(lesson.getId())
+                                .stream()
+                                .map(note -> mapLessonNote(tutoringClass, lesson, note))))
+                .sorted(Comparator.comparing(
+                        ProgressLessonNoteResponse::getStartTime,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .limit(30)
+                .collect(Collectors.toList());
+    }
+
+    private ProgressLessonNoteResponse mapLessonNote(
+            TutoringClass tutoringClass,
+            Lesson lesson,
+            LessonNote note
+    ) {
+        String summary = note.getAiSummary();
+        if (summary == null || summary.isBlank()) {
+            summary = note.getRawTutorNote();
+        }
+
+        return ProgressLessonNoteResponse.builder()
+                .lessonId(lesson.getId())
+                .classId(tutoringClass.getId())
+                .className(tutoringClass.getClassName())
+                .title(lesson.getTitle())
+                .startTime(lesson.getStartTime())
+                .status(lesson.getStatus())
+                .aiSummary(summary)
+                .keyLearnings(note.getKeyLearnings())
+                .areasForImprovement(note.getAreasForImprovement())
+                .build();
+    }
+
+    private String buildAiContext(
+            List<ProgressClassResponse> classProgress,
+            List<Assignment> assignments,
+            List<ProgressLessonNoteResponse> lessonNotes
+    ) {
         StringBuilder context = new StringBuilder();
         for (ProgressClassResponse progress : classProgress) {
             context.append("- Lớp ").append(progress.getClassName())
@@ -206,6 +250,23 @@ public class ProgressReportServiceImpl implements ProgressReportService {
                 .append(assignments.stream().filter(item -> item.getStatus() == AssignmentStatus.GRADED).count())
                 .append("; quá hạn: ")
                 .append(assignments.stream().filter(this::isOverdue).count());
+
+        if (!lessonNotes.isEmpty()) {
+            context.append("\n- Ghi chú chi tiết sau các buổi học:\n");
+            for (ProgressLessonNoteResponse note : lessonNotes) {
+                context.append("  + ")
+                        .append(note.getClassName())
+                        .append(" | ")
+                        .append(note.getTitle())
+                        .append(" | tóm tắt: ")
+                        .append(note.getAiSummary() != null ? note.getAiSummary() : "Chưa có")
+                        .append(" | kiến thức: ")
+                        .append(note.getKeyLearnings() != null ? note.getKeyLearnings() : "Chưa có")
+                        .append(" | cần cải thiện: ")
+                        .append(note.getAreasForImprovement() != null ? note.getAreasForImprovement() : "Chưa có")
+                        .append('\n');
+            }
+        }
         return context.toString();
     }
 

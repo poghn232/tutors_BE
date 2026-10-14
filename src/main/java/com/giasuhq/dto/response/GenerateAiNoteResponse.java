@@ -13,4 +13,5 @@ public class GenerateAiNoteResponse {
     private String aiSummary;
     private String keyLearnings;
     private String areasForImprovement;
+    private boolean aiGenerated;
 }

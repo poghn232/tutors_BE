@@ -15,4 +15,5 @@ public class ProgressAiReportResponse {
     private String areasForImprovement;
     private String nextSteps;
     private String motivation;
+    private boolean aiGenerated;
 }
