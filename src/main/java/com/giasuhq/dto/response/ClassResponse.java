@@ -29,6 +29,7 @@ public class ClassResponse {
     private BigDecimal discountAmount;
     private BigDecimal paidAmount;
     private String voucherCode;
+    private String paymentOrderCode;
     private LocalDateTime approvedAt;
     private LocalDateTime paidAt;
     private ClassStatus status;

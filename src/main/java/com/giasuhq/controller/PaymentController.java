@@ -326,6 +326,12 @@ public class PaymentController {
                         tutoringClassService.findClassByPaymentOrderCode(key, bookingUser);
                 if (existing.isEmpty()) {
                     tutoringClassService.createClass(request, bookingUser);
+                } else if (existing.get().getPaidAt() != null
+                        || (existing.get().getPaidAmount() != null
+                        && existing.get().getPaidAmount().compareTo(BigDecimal.ZERO) > 0)) {
+                    // A paid booking is already durable. Do not keep re-registering it
+                    // as a pending payment request on every frontend poll.
+                    pendingBookingRequests.remove(key);
                 }
             } catch (Exception ex) {
                 pendingBookingRequests.remove(key);
@@ -402,6 +408,8 @@ public class PaymentController {
                                 .ifPresent(existingClass -> {
                                     try {
                                         ConnectionPaymentResponse payment = existingClass.getPaidAt() != null
+                                                || (existingClass.getPaidAmount() != null
+                                                && existingClass.getPaidAmount().compareTo(BigDecimal.ZERO) > 0)
                                                 ? ConnectionPaymentResponse.builder()
                                                 .classInfo(existingClass)
                                                 .finalAmount(existingClass.getPaidAmount())

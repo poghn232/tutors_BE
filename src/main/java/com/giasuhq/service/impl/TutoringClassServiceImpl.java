@@ -40,6 +40,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
     private final TutorRepository tutorRepository;
     private final ParentRepository parentRepository;
     private final LessonRepository lessonRepository;
+    private final SepayConfirmedOrderRepository sepayConfirmedOrderRepository;
     private final VoucherService voucherService;
 
     @Override
@@ -68,6 +69,33 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             }
         } else {
             classes = tutoringClassRepository.findByParentIdOrderByCreatedAtDesc(currentUser.getId());
+        }
+
+        if (role == Role.PARENT) {
+            reconcileConfirmedPayments(classes, currentUser);
+        }
+
+        boolean repairedPaymentStates = false;
+        for (TutoringClass tutoringClass : classes) {
+            if (!hasRecordedConnectionPayment(tutoringClass)
+                    || tutoringClass.getStatus() == ClassStatus.DECLINED
+                    || tutoringClass.getStatus() == ClassStatus.CANCELLED
+                    || tutoringClass.getStatus() == ClassStatus.COMPLETED) {
+                continue;
+            }
+
+            if (tutoringClass.getApprovedAt() == null
+                    && tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL) {
+                tutoringClass.setStatus(ClassStatus.PENDING_TUTOR_APPROVAL);
+                repairedPaymentStates = true;
+            } else if (tutoringClass.getApprovedAt() != null
+                    && tutoringClass.getStatus() == ClassStatus.PENDING_PAYMENT) {
+                tutoringClass.setStatus(ClassStatus.ACTIVE);
+                repairedPaymentStates = true;
+            }
+        }
+        if (repairedPaymentStates) {
+            classes = tutoringClassRepository.saveAll(classes);
         }
 
         return classes.stream().map(this::mapToResponse).collect(Collectors.toList());
@@ -254,7 +282,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
             throw new IllegalArgumentException("Lớp học không ở trạng thái chờ duyệt (Trạng thái hiện tại: " + tutoringClass.getStatus() + ").");
         }
 
-        tutoringClass.setStatus(tutoringClass.getPaidAt() != null
+        tutoringClass.setStatus(hasRecordedConnectionPayment(tutoringClass)
                 ? ClassStatus.ACTIVE
                 : ClassStatus.PENDING_PAYMENT);
         tutoringClass.setApprovedAt(LocalDateTime.now());
@@ -290,6 +318,17 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
 
         ensureOwner(tutoringClass, currentUser);
+
+        if (hasRecordedConnectionPayment(tutoringClass)) {
+            BigDecimal fee = effectiveConnectionFee(tutoringClass);
+            return buildPaymentResponse(tutoringClass, fee, null,
+                    tutoringClass.getPaidAmount() != null ? tutoringClass.getPaidAmount() : fee, null);
+        }
+
+        ConnectionPaymentResponse recoveredPayment = recoverConfirmedPayment(tutoringClass, currentUser);
+        if (recoveredPayment != null) {
+            return recoveredPayment;
+        }
 
         if (tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT) {
             throw new IllegalArgumentException("Lớp học không ở trạng thái chờ thanh toán phí kết nối (Trạng thái hiện tại: " + tutoringClass.getStatus() + ").");
@@ -339,13 +378,14 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học với ID: " + id));
         ensureOwner(tutoringClass, currentUser);
 
-        if (tutoringClass.getPaidAt() != null) {
+        if (hasRecordedConnectionPayment(tutoringClass)) {
             BigDecimal fee = effectiveConnectionFee(tutoringClass);
             return buildPaymentResponse(tutoringClass, fee, null,
                     tutoringClass.getPaidAmount() != null ? tutoringClass.getPaidAmount() : fee, null);
         }
         if (tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL
-                && tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT) {
+                && tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT
+                && tutoringClass.getStatus() != ClassStatus.ACTIVE) {
             throw new IllegalArgumentException("Lớp học không ở trạng thái có thể ghi nhận thanh toán phí kết nối.");
         }
 
@@ -398,7 +438,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .orElse(null);
         if (existingClass != null) {
             ensureOwner(existingClass, currentUser);
-            if (existingClass.getPaidAt() != null) {
+            if (hasRecordedConnectionPayment(existingClass)) {
                 BigDecimal fee = effectiveConnectionFee(existingClass);
                 return buildPaymentResponse(
                         existingClass,
@@ -429,6 +469,60 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 transferredAmount,
                 request.getVoucherCode()
         );
+    }
+
+    private void reconcileConfirmedPayments(List<TutoringClass> classes, User currentUser) {
+        for (TutoringClass tutoringClass : classes) {
+            if (hasRecordedConnectionPayment(tutoringClass)
+                    || tutoringClass.getPaymentOrderCode() == null
+                    || tutoringClass.getPaymentOrderCode().isBlank()
+                    || (tutoringClass.getStatus() != ClassStatus.PENDING_TUTOR_APPROVAL
+                    && tutoringClass.getStatus() != ClassStatus.PENDING_PAYMENT
+                    && tutoringClass.getStatus() != ClassStatus.ACTIVE)) {
+                continue;
+            }
+
+            try {
+                sepayConfirmedOrderRepository.findById(tutoringClass.getPaymentOrderCode().trim().toUpperCase(Locale.ROOT))
+                        .ifPresent(order -> {
+                            if (order.getTransferAmount() != null) {
+                                recordExternalConnectionPayment(
+                                        tutoringClass.getId(),
+                                        currentUser,
+                                        BigDecimal.valueOf(order.getTransferAmount()),
+                                        tutoringClass.getVoucherCode());
+                            }
+                        });
+            } catch (Exception ex) {
+                log.warn("Could not reconcile confirmed payment for class {}: {}", tutoringClass.getId(), ex.getMessage());
+            }
+        }
+    }
+
+    private ConnectionPaymentResponse recoverConfirmedPayment(TutoringClass tutoringClass, User currentUser) {
+        if (tutoringClass.getPaymentOrderCode() == null || tutoringClass.getPaymentOrderCode().isBlank()) {
+            return null;
+        }
+        try {
+            return sepayConfirmedOrderRepository.findById(
+                            tutoringClass.getPaymentOrderCode().trim().toUpperCase(Locale.ROOT))
+                    .filter(order -> order.getTransferAmount() != null)
+                    .map(order -> recordExternalConnectionPayment(
+                            tutoringClass.getId(),
+                            currentUser,
+                            BigDecimal.valueOf(order.getTransferAmount()),
+                            tutoringClass.getVoucherCode()))
+                    .orElse(null);
+        } catch (Exception ex) {
+            log.warn("Could not recover confirmed payment for class {}: {}", tutoringClass.getId(), ex.getMessage());
+            return null;
+        }
+    }
+
+    private boolean hasRecordedConnectionPayment(TutoringClass tutoringClass) {
+        return tutoringClass.getPaidAt() != null
+                || (tutoringClass.getPaidAmount() != null
+                && tutoringClass.getPaidAmount().compareTo(BigDecimal.ZERO) > 0);
     }
 
     @Override
@@ -603,6 +697,7 @@ public class TutoringClassServiceImpl implements TutoringClassService {
                 .discountAmount(tc.getDiscountAmount() != null ? tc.getDiscountAmount() : BigDecimal.ZERO)
                 .paidAmount(tc.getPaidAmount())
                 .voucherCode(tc.getVoucherCode())
+                .paymentOrderCode(tc.getPaymentOrderCode())
                 .approvedAt(tc.getApprovedAt())
                 .paidAt(tc.getPaidAt())
                 .status(tc.getStatus())
