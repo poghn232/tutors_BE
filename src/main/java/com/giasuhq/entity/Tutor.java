@@ -20,6 +20,15 @@ public class Tutor extends User {
 
     private String qualification;
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "tutor_subjects",
+        joinColumns = @JoinColumn(name = "tutor_id"),
+        inverseJoinColumns = @JoinColumn(name = "subject_id")
+    )
+    @Builder.Default
+    private java.util.Set<Subject> subjects = new java.util.HashSet<>();
+
     @Column(name = "experience_years")
     private Integer experienceYears;
 

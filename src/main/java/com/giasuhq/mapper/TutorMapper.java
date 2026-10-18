@@ -3,9 +3,13 @@ package com.giasuhq.mapper;
 import com.giasuhq.dto.request.CreateTutorRequest;
 import com.giasuhq.dto.response.TutorResponse;
 import com.giasuhq.entity.Role;
+import com.giasuhq.entity.Subject;
 import com.giasuhq.entity.Tutor;
 import com.giasuhq.util.ContactUtils;
 import org.springframework.stereotype.Component;
+
+import java.util.Collections;
+import java.util.List;
 
 @Component
 public class TutorMapper {
@@ -23,6 +27,10 @@ public class TutorMapper {
     }
 
     public TutorResponse toResponse(Tutor tutor) {
+        List<String> subjectNames = tutor.getSubjects() != null
+                ? tutor.getSubjects().stream().map(Subject::getName).toList()
+                : Collections.emptyList();
+
         return new TutorResponse(
                 tutor.getId(),
                 tutor.getFullName(),
@@ -39,7 +47,8 @@ public class TutorMapper {
                 tutor.getCertificatesJson(),
                 tutor.getAvailableDaysJson(),
                 tutor.getAvailableTimesJson(),
-                tutor.getCreatedAt()
+                tutor.getCreatedAt(),
+                subjectNames
         );
     }
 }

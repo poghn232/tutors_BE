@@ -1,11 +1,12 @@
 package com.giasuhq.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record TutorResponse(
         Long id,
         String fullName,
-        String subject,
+        String qualification,
         String email,
         String phone,
         String avatarUrl,
@@ -18,7 +19,15 @@ public record TutorResponse(
         String certificatesJson,
         String availableDaysJson,
         String availableTimesJson,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        List<String> subjects
 ) {
+    public String getSubject() {
+        return qualification;
+    }
+
+    public String subject() {
+        return qualification;
+    }
 }
 
