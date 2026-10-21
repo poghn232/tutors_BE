@@ -76,7 +76,7 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .build();
 
         LearningMaterial saved = materialRepository.save(material);
-        log.info("User {} created new learning material: id={}, title={}", user != null ? user.getEmail() : "anonymous", saved.getId(), saved.getTitle());
+        log.info("User {} created new learning material: id={}, title={}", new Object[]{user != null ? user.getEmail() : "anonymous", saved.getId(), saved.getTitle()});
         return mapToResponse(saved);
     }
 
@@ -118,7 +118,7 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
         material.setBtnColor(btnColor);
 
         LearningMaterial updated = materialRepository.save(material);
-        log.info("User {} updated learning material: id={}, title={}", user.getEmail(), updated.getId(), updated.getTitle());
+        log.info("User {} updated learning material: id={}, title={}", new Object[]{user.getEmail(), updated.getId(), updated.getTitle()});
         return mapToResponse(updated);
     }
 
@@ -131,7 +131,7 @@ public class LearningMaterialServiceImpl implements LearningMaterialService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài liệu với ID: " + id));
 
         materialRepository.delete(material);
-        log.info("User {} deleted learning material: id={}, title={}", user.getEmail(), id, material.getTitle());
+        log.info("User {} deleted learning material: id={}, title={}", new Object[]{user.getEmail(), id, material.getTitle()});
     }
 
     @Override

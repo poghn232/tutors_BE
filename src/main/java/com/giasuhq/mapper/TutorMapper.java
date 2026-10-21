@@ -27,9 +27,16 @@ public class TutorMapper {
     }
 
     public TutorResponse toResponse(Tutor tutor) {
+        return toResponse(tutor, 0.0, 0);
+    }
+
+    public TutorResponse toResponse(Tutor tutor, Double rating, Integer reviewsCount) {
         List<String> subjectNames = tutor.getSubjects() != null
                 ? tutor.getSubjects().stream().map(Subject::getName).toList()
                 : Collections.emptyList();
+
+        double safeRating = rating != null ? Math.round(rating * 10.0) / 10.0 : 0.0;
+        int safeCount = reviewsCount != null ? reviewsCount : 0;
 
         return new TutorResponse(
                 tutor.getId(),
@@ -48,7 +55,9 @@ public class TutorMapper {
                 tutor.getAvailableDaysJson(),
                 tutor.getAvailableTimesJson(),
                 tutor.getCreatedAt(),
-                subjectNames
+                subjectNames,
+                safeRating,
+                safeCount
         );
     }
 }

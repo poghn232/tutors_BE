@@ -177,21 +177,25 @@ public class EmailServiceImpl implements EmailService {
         } catch (EmailDeliveryException exception) {
             log.warn(
                     "event=EMAIL_ASYNC_TASK_FAILED provider={} mailType={} category={} recipient={} message={}",
-                    providerName(),
-                    mailType,
-                    exception.getCategory(),
-                    maskEmail(toEmail),
-                    summarizeMessage(exception.getMessage())
+                    new Object[]{
+                            providerName(),
+                            mailType,
+                            exception.getCategory(),
+                            maskEmail(toEmail),
+                            summarizeMessage(exception.getMessage())
+                    }
             );
             return CompletableFuture.completedFuture(false);
         } catch (Exception exception) {
             log.error(
                     "event=EMAIL_ASYNC_TASK_FAILED provider={} mailType={} category=EMAIL_ASYNC recipient={} message={}",
-                    providerName(),
-                    mailType,
-                    maskEmail(toEmail),
-                    summarizeMessage(exception.getMessage()),
-                    exception
+                    new Object[]{
+                            providerName(),
+                            mailType,
+                            maskEmail(toEmail),
+                            summarizeMessage(exception.getMessage()),
+                            exception
+                    }
             );
             return CompletableFuture.completedFuture(false);
         }
@@ -206,31 +210,35 @@ public class EmailServiceImpl implements EmailService {
         if (!isMailConfigured()) {
             log.warn(
                     "event=EMAIL_NOT_CONFIGURED provider={} mailType={} recipient={} mailSenderAvailable={} usernameConfigured={} passwordConfigured={} resendApiKeyConfigured={} resendFromConfigured={} smtpHost={} smtpPort={}. OTP delivery skipped.",
-                    provider,
-                    mailType,
-                    recipient,
-                    mailSender != null,
-                    hasText(fromEmail),
-                    hasText(mailPassword),
-                    hasText(resendApiKey),
-                    hasText(resendFrom),
-                    configValue(smtpHost),
-                    configValue(smtpPort)
+                    new Object[]{
+                            provider,
+                            mailType,
+                            recipient,
+                            mailSender != null,
+                            hasText(fromEmail),
+                            hasText(mailPassword),
+                            hasText(resendApiKey),
+                            hasText(resendFrom),
+                            configValue(smtpHost),
+                            configValue(smtpPort)
+                    }
             );
             return false;
         }
 
         log.info(
                 "event=EMAIL_SEND_STARTED provider={} mailType={} recipient={} smtpHost={} smtpPort={} connectionTimeoutMs={} readTimeoutMs={} writeTimeoutMs={} httpTimeoutMs={}",
-                provider,
-                mailType,
-                recipient,
-                configValue(smtpHost),
-                configValue(smtpPort),
-                configValue(connectionTimeoutMs),
-                configValue(readTimeoutMs),
-                configValue(writeTimeoutMs),
-                mailHttpTimeoutMs
+                new Object[]{
+                        provider,
+                        mailType,
+                        recipient,
+                        configValue(smtpHost),
+                        configValue(smtpPort),
+                        configValue(connectionTimeoutMs),
+                        configValue(readTimeoutMs),
+                        configValue(writeTimeoutMs),
+                        mailHttpTimeoutMs
+                }
         );
 
         try {
@@ -242,11 +250,13 @@ public class EmailServiceImpl implements EmailService {
             }
             log.info(
                     "event=EMAIL_SEND_SUCCEEDED provider={} mailType={} recipient={} providerMessageId={} elapsedMs={}",
-                    provider,
-                    mailType,
-                    recipient,
-                    providerMessageId,
-                    elapsedMillis(startedAt)
+                    new Object[]{
+                            provider,
+                            mailType,
+                            recipient,
+                            providerMessageId,
+                            elapsedMillis(startedAt)
+                    }
             );
             return true;
         } catch (Exception exception) {
@@ -256,18 +266,20 @@ public class EmailServiceImpl implements EmailService {
             Throwable rootCause = findRootCause(exception);
             log.error(
                     "event={} provider={} mailType={} category={} recipient={} smtpHost={} smtpPort={} elapsedMs={} rootCauseType={} rootCauseMessage={} remediation={}",
-                    resendProvider ? "EMAIL_API_SEND_FAILED" : "SMTP_SEND_FAILED",
-                    provider,
-                    mailType,
-                    failure.category(),
-                    recipient,
-                    configValue(smtpHost),
-                    configValue(smtpPort),
-                    elapsedMillis(startedAt),
-                    rootCause.getClass().getSimpleName(),
-                    summarizeMessage(rootCause.getMessage()),
-                    failure.remediation(),
-                    exception
+                    new Object[]{
+                            resendProvider ? "EMAIL_API_SEND_FAILED" : "SMTP_SEND_FAILED",
+                            provider,
+                            mailType,
+                            failure.category(),
+                            recipient,
+                            configValue(smtpHost),
+                            configValue(smtpPort),
+                            elapsedMillis(startedAt),
+                            rootCause.getClass().getSimpleName(),
+                            summarizeMessage(rootCause.getMessage()),
+                            failure.remediation(),
+                            exception
+                    }
             );
             throw new EmailDeliveryException(failure.category(), failure.userMessage(), exception);
         }

@@ -66,6 +66,38 @@ public class DataMigrationRunner implements CommandLineRunner {
                     ('SHARE20', 'Voucher giới thiệu bạn bè', 'Chia sẻ link để người nhận được giảm 20% phí kết nối.',
                      'PERCENTAGE', 20, 5000, 5000, NULL, 0, 1, CURRENT_TIMESTAMP, '2030-12-31 23:59:59', TRUE, TRUE, FALSE)
                     """));
+
+        runMigration("create reviews table", () -> jdbcTemplate.execute("""
+                CREATE TABLE IF NOT EXISTS reviews (
+                    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    tutor_id BIGINT NOT NULL,
+                    user_id BIGINT NULL,
+                    author_name VARCHAR(255) NOT NULL,
+                    rating INT NOT NULL,
+                    comment TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_reviews_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id) ON DELETE CASCADE,
+                    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                    INDEX idx_reviews_tutor (tutor_id),
+                    INDEX idx_reviews_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                """));
+
+        runMigration("seed initial reviews", () -> {
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM reviews", Integer.class);
+            if (count == null || count == 0) {
+                jdbcTemplate.update("""
+                        INSERT INTO reviews (tutor_id, user_id, author_name, rating, comment, created_at) VALUES
+                        (1, 2, 'Trần Văn Minh (Lớp 12)', 5, 'Thầy dạy cực kỳ có tâm! Các bài toán tích phân và lượng giác khó thầy hướng dẫn phương pháp giải rất ngắn gọn và dễ hiểu.', '2026-09-10 14:30:00'),
+                        (1, 2, 'Nguyễn Phương Thảo (Lớp 11)', 5, 'Em từ mất gốc môn Vật lý mà sau 2 tháng học cùng thầy đã đạt 8.5 điểm kiểm tra 1 tiết. Cảm ơn thầy rất nhiều ạ!', '2026-09-04 09:15:00'),
+                        (1, NULL, 'Bác Hoàng (Phụ huynh em Duy)', 5, 'Thầy Ứng rất đúng giờ, phương pháp sư phạm hiện đại. Con tôi tiến bộ rõ rệt chỉ sau 1 tháng theo học.', '2026-08-25 19:00:00'),
+                        (4, 2, 'Lê Bảo Anh (Lớp 12)', 5, 'Cô Lan dạy Hóa Sinh cực đỉnh, giải thích các phản ứng và cơ chế sinh học phân tử rất sâu sắc, giúp em tự tin thi Y Dược.', '2026-09-01 16:45:00'),
+                        (5, NULL, 'Nguyễn Quốc Hùng (Lớp 10)', 5, 'Cô Thu có nhiều thí nghiệm trực quan thú vị, truyền cảm hứng môn Sinh học rất tốt.', '2026-09-08 11:20:00'),
+                        (6, NULL, 'Phạm Thu Trang (Lớp 12)', 4, 'Thầy Đức luyện đề THPT rất bám sát đề thi thực tế, phân tích các bẫy điểm 9+ cặn kẽ.', '2026-09-12 10:00:00'),
+                        (7, NULL, 'Vũ Hải Đăng (Lớp 11)', 5, 'Cô Mai phát âm tiếng Anh chuẩn bản ngữ, cách dạy qua văn hóa nghệ thuật giúp nhớ từ vựng rất lâu.', '2026-09-15 15:30:00')
+                        """);
+            }
+        });
     }
 
     private void runMigration(String name, Runnable migration) {

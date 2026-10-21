@@ -321,9 +321,11 @@ public class AuthServiceImpl implements AuthService {
         } catch (RuntimeException exception) {
             log.error(
                     "event=OTP_EMAIL_QUEUE_FAILED mailType=REGISTRATION recipient={} message={}",
-                    maskEmail(normEmail),
-                    exception.getMessage(),
-                    exception
+                    new Object[]{
+                            maskEmail(normEmail),
+                            exception.getMessage(),
+                            exception
+                    }
             );
             throw new EmailDeliveryException(
                     "SMTP_QUEUE",
@@ -367,9 +369,11 @@ public class AuthServiceImpl implements AuthService {
         } catch (RuntimeException exception) {
             log.error(
                     "event=OTP_EMAIL_QUEUE_FAILED mailType=PASSWORD_RESET recipient={} message={}",
-                    maskEmail(normEmail),
-                    exception.getMessage(),
-                    exception
+                    new Object[]{
+                            maskEmail(normEmail),
+                            exception.getMessage(),
+                            exception
+                    }
             );
             throw new EmailDeliveryException(
                     "SMTP_QUEUE",

@@ -337,3 +337,31 @@ INSERT IGNORE INTO learning_materials (id, title, description, subject_name, mat
 (7, 'Video luyện nghe IELTS 7.5+ chuyên đề Science', 'Chiến thuật bắt key words và bẫy phát âm trong Section 4 bài thi IELTS Listening.', 'Tiếng Anh', 'video', 'Video', NULL, 'Trần Minh Đức', '/uploads/video_ielts_listening_science.mp4', 'video_ielts_listening_science.mp4', '45 MB', TRUE, 954, 'Tải xuống (45 phút)', '#2563eb', 6),
 (8, 'Trắc nghiệm Vật lý hạt nhân 12 nâng cao', 'Dạng bài toán phóng xạ, năng lượng liên kết và phản ứng nhiệt hạch có độ phân hóa cao.', 'Vật lý', 'quiz', 'Trắc nghiệm', NULL, 'TS. Nguyễn Thị Hoa', '/uploads/trac_nghiem_vat_ly_hat_nhan.pdf', 'trac_nghiem_vat_ly_hat_nhan.pdf', '1.4 MB', TRUE, 623, 'Tải xuống (1.4MB)', '#2563eb', 1),
  (9, 'Sổ tay công thức Hóa học 10-11-12', 'Bản in tóm tắt bỏ túi toàn bộ lý thuyết, bảng tính tan, chuỗi thế điện cực và mẹo giải nhanh.', 'Luyện thi THPT', 'pdf', 'PDF', NULL, 'TS. Phạm Thị Lan', '/uploads/so_tay_hoa_hoc_10_11_12.pdf', 'so_tay_hoa_hoc_10_11_12.pdf', '1.8 MB', FALSE, 4102, 'Tải xuống (1.8MB)', '#f97316', 4);
+
+-- =========================================================
+-- Reviews Table & Seed Data
+-- =========================================================
+CREATE TABLE IF NOT EXISTS reviews (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    tutor_id BIGINT NOT NULL,
+    user_id BIGINT NULL,
+    author_name VARCHAR(255) NOT NULL,
+    rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_reviews_tutor FOREIGN KEY (tutor_id) REFERENCES tutors(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_reviews_tutor (tutor_id),
+    INDEX idx_reviews_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO reviews (id, tutor_id, user_id, author_name, rating, comment, created_at) VALUES
+(1, 1, 2, 'Trần Văn Minh (Lớp 12)', 5, 'Thầy dạy cực kỳ có tâm! Các bài toán tích phân và lượng giác khó thầy hướng dẫn phương pháp giải rất ngắn gọn và dễ hiểu.', '2026-09-10 14:30:00'),
+(2, 1, 2, 'Nguyễn Phương Thảo (Lớp 11)', 5, 'Em từ mất gốc môn Vật lý mà sau 2 tháng học cùng thầy đã đạt 8.5 điểm kiểm tra 1 tiết. Cảm ơn thầy rất nhiều ạ!', '2026-09-04 09:15:00'),
+(3, 1, NULL, 'Bác Hoàng (Phụ huynh em Duy)', 5, 'Thầy Ứng rất đúng giờ, phương pháp sư phạm hiện đại. Con tôi tiến bộ rõ rệt chỉ sau 1 tháng theo học.', '2026-08-25 19:00:00'),
+(4, 4, 2, 'Lê Bảo Anh (Lớp 12)', 5, 'Cô Lan dạy Hóa Sinh cực đỉnh, giải thích các phản ứng và cơ chế sinh học phân tử rất sâu sắc, giúp em tự tin thi Y Dược.', '2026-09-01 16:45:00'),
+(5, 5, NULL, 'Nguyễn Quốc Hùng (Lớp 10)', 5, 'Cô Thu có nhiều thí nghiệm trực quan thú vị, truyền cảm hứng môn Sinh học rất tốt.', '2026-09-08 11:20:00'),
+(6, 6, NULL, 'Phạm Thu Trang (Lớp 12)', 4, 'Thầy Đức luyện đề THPT rất bám sát đề thi thực tế, phân tích các bẫy điểm 9+ cặn kẽ.', '2026-09-12 10:00:00'),
+(7, 7, NULL, 'Vũ Hải Đăng (Lớp 11)', 5, 'Cô Mai phát âm tiếng Anh chuẩn bản ngữ, cách dạy qua văn hóa nghệ thuật giúp nhớ từ vựng rất lâu.', '2026-09-15 15:30:00')
+ON DUPLICATE KEY UPDATE comment = VALUES(comment);
+

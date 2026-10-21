@@ -20,8 +20,36 @@ public record TutorResponse(
         String availableDaysJson,
         String availableTimesJson,
         LocalDateTime createdAt,
-        List<String> subjects
+        List<String> subjects,
+        Double rating,
+        Integer reviewsCount
 ) {
+    public TutorResponse(
+            Long id,
+            String fullName,
+            String qualification,
+            String email,
+            String phone,
+            String avatarUrl,
+            String facebookUrl,
+            String bio,
+            Integer experienceYears,
+            String verificationStatus,
+            String rejectionReason,
+            LocalDateTime verifiedAt,
+            String certificatesJson,
+            String availableDaysJson,
+            String availableTimesJson,
+            LocalDateTime createdAt,
+            List<String> subjects
+    ) {
+        this(
+                id, fullName, qualification, email, phone, avatarUrl, facebookUrl, bio, experienceYears,
+                verificationStatus, rejectionReason, verifiedAt, certificatesJson, availableDaysJson,
+                availableTimesJson, createdAt, subjects, 0.0, 0
+        );
+    }
+
     public String getSubject() {
         return qualification;
     }
@@ -30,4 +58,3 @@ public record TutorResponse(
         return qualification;
     }
 }
-
