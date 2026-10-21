@@ -60,6 +60,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/tutors/*/verification").hasRole("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/tutors").hasRole("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/subjects").hasRole("ADMIN")
+                .requestMatchers("/api/vouchers/admin/**", "/api/users/admin/**").hasRole("ADMIN")
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/tutors/**", "/api/subjects/**", "/api/materials/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/materials/*/download").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/files/**").authenticated()

@@ -23,4 +23,12 @@ public interface VoucherService {
     VoucherResponse issuePostPaymentVoucher(User user);
 
     VoucherResponse issueVoucherToUser(User actor, Long targetUserId, String code);
+
+    List<VoucherResponse> getAllVouchersForAdmin(User actor);
+
+    VoucherResponse createVoucher(User actor, com.giasuhq.dto.request.CreateVoucherRequest request);
+
+    VoucherResponse toggleVoucherStatus(User actor, Long voucherId);
+
+    void deleteVoucher(User actor, Long voucherId);
 }

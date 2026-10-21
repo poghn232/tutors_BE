@@ -7,4 +7,5 @@ import com.giasuhq.entity.User;
 public interface UserService {
     UserProfileResponse getUserProfile(User currentUser);
     UserProfileResponse updateProfile(User currentUser, UpdateProfileRequest request);
+    java.util.List<UserProfileResponse> getAllUsersForAdmin(User actor);
 }

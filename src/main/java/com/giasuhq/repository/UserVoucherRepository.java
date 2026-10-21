@@ -12,4 +12,5 @@ public interface UserVoucherRepository extends JpaRepository<UserVoucher, Long> 
     List<UserVoucher> findByUserIdOrderByClaimedAtDesc(Long userId);
     Optional<UserVoucher> findByUserIdAndVoucherId(Long userId, Long voucherId);
     Optional<UserVoucher> findByShareCodeIgnoreCase(String shareCode);
+    boolean existsByVoucherId(Long voucherId);
 }

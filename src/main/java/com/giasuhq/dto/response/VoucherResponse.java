@@ -30,4 +30,11 @@ public class VoucherResponse {
     private UserVoucherStatus status;
     private LocalDateTime claimedAt;
     private LocalDateTime redeemedAt;
+    private Integer usageLimit;
+    private Integer claimedCount;
+    private Integer maxClaimsPerUser;
+    private Boolean active;
+    private Boolean autoIssueOnPayment;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

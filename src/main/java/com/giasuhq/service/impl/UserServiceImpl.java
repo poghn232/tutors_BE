@@ -7,8 +7,12 @@ import com.giasuhq.repository.*;
 import com.giasuhq.service.UserService;
 import com.giasuhq.util.ContactUtils;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +25,18 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserProfileResponse getUserProfile(User currentUser) {
         return mapToProfileResponse(currentUser);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserProfileResponse> getAllUsersForAdmin(User actor) {
+        if (actor == null || actor.getRole() != Role.ADMIN) {
+            throw new IllegalArgumentException("Chỉ Quản trị viên (Admin) mới có quyền truy cập danh sách người dùng.");
+        }
+        return userRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .map(this::mapToProfileResponse)
+                .collect(Collectors.toList());
     }
 
     @Override

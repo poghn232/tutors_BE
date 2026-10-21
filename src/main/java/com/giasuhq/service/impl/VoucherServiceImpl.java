@@ -1,5 +1,6 @@
 package com.giasuhq.service.impl;
 
+import com.giasuhq.dto.request.CreateVoucherRequest;
 import com.giasuhq.dto.response.VoucherQuoteResponse;
 import com.giasuhq.dto.response.VoucherRedemptionResult;
 import com.giasuhq.dto.response.VoucherResponse;
@@ -210,13 +211,98 @@ public class VoucherServiceImpl implements VoucherService {
     @Override
     @Transactional
     public VoucherResponse issueVoucherToUser(User actor, Long targetUserId, String code) {
-        requireUser(actor);
-        if (actor.getRole() != Role.ADMIN) {
-            throw new IllegalArgumentException("Chỉ quản trị viên mới có quyền phát voucher trực tiếp.");
-        }
+        requireAdmin(actor);
         User target = userRepository.findById(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng nhận voucher."));
         return claimVoucher(target, code);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VoucherResponse> getAllVouchersForAdmin(User actor) {
+        requireAdmin(actor);
+        return voucherRepository.findAllByOrderByCreatedAtDesc().stream()
+                .map(this::mapToAdminResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public VoucherResponse createVoucher(User actor, CreateVoucherRequest request) {
+        requireAdmin(actor);
+        if (request == null) {
+            throw new IllegalArgumentException("Dữ liệu tạo khuyến mãi không hợp lệ.");
+        }
+        String normalizedCode = normalizeCode(request.getCode());
+        if (voucherRepository.existsByCodeIgnoreCase(normalizedCode)) {
+            throw new IllegalArgumentException("Mã khuyến mãi '" + normalizedCode + "' đã tồn tại trong hệ thống.");
+        }
+        if (request.getDiscountType() == VoucherDiscountType.PERCENTAGE) {
+            if (request.getDiscountValue() == null || request.getDiscountValue().compareTo(BigDecimal.ZERO) <= 0
+                    || request.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new IllegalArgumentException("Giá trị giảm theo phần trăm phải nằm trong khoảng từ 1% đến 100%.");
+            }
+        } else if (request.getDiscountValue() == null || request.getDiscountValue().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Giá trị giảm cố định phải lớn hơn 0.");
+        }
+
+        if (request.getStartsAt() != null && request.getExpiresAt() != null
+                && request.getExpiresAt().isBefore(request.getStartsAt())) {
+            throw new IllegalArgumentException("Ngày hết hạn phải diễn ra sau ngày bắt đầu.");
+        }
+
+        Voucher voucher = Voucher.builder()
+                .code(normalizedCode)
+                .name(request.getName().trim())
+                .description(request.getDescription() != null ? request.getDescription().trim() : null)
+                .discountType(request.getDiscountType())
+                .discountValue(request.getDiscountValue())
+                .maxDiscount(request.getMaxDiscount())
+                .minOrderAmount(request.getMinOrderAmount() != null ? request.getMinOrderAmount() : BigDecimal.ZERO)
+                .usageLimit(request.getUsageLimit())
+                .claimedCount(0)
+                .maxClaimsPerUser(request.getMaxClaimsPerUser() != null && request.getMaxClaimsPerUser() > 0 ? request.getMaxClaimsPerUser() : 1)
+                .startsAt(request.getStartsAt() != null ? request.getStartsAt() : LocalDateTime.now())
+                .expiresAt(request.getExpiresAt())
+                .active(request.getActive() != null ? request.getActive() : true)
+                .shareable(Boolean.TRUE.equals(request.getShareable()))
+                .autoIssueOnPayment(Boolean.TRUE.equals(request.getAutoIssueOnPayment()))
+                .build();
+
+        Voucher saved = voucherRepository.save(voucher);
+        log.info("Admin {} created voucher {} successfully.", actor.getEmail(), saved.getCode());
+        return mapToAdminResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public VoucherResponse toggleVoucherStatus(User actor, Long voucherId) {
+        requireAdmin(actor);
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher với ID: " + voucherId));
+        boolean currentStatus = Boolean.TRUE.equals(voucher.getActive());
+        voucher.setActive(!currentStatus);
+        Voucher saved = voucherRepository.save(voucher);
+        log.info("Admin {} toggled voucher {} active status to {}", new Object[]{actor.getEmail(), saved.getCode(), saved.getActive()});
+        return mapToAdminResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteVoucher(User actor, Long voucherId) {
+        requireAdmin(actor);
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy voucher với ID: " + voucherId));
+
+        if (userVoucherRepository.existsByVoucherId(voucherId)) {
+            voucher.setActive(false);
+            voucher.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+            voucherRepository.save(voucher);
+            log.info("Voucher {} was claimed by users; soft-deactivated and expired instead of hard delete.", voucher.getCode());
+        } else {
+            voucherRepository.delete(voucher);
+            log.info("Voucher {} was hard deleted by admin {}.", voucher.getCode(), actor.getEmail());
+        }
     }
 
     private VoucherResponse claimSharedVoucher(User receiver, UserVoucher source) {
@@ -366,5 +452,35 @@ public class VoucherServiceImpl implements VoucherService {
         if (user == null || user.getId() == null) {
             throw new IllegalArgumentException("Vui lòng đăng nhập để sử dụng voucher.");
         }
+    }
+
+    private void requireAdmin(User actor) {
+        requireUser(actor);
+        if (actor.getRole() != Role.ADMIN) {
+            throw new IllegalArgumentException("Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này.");
+        }
+    }
+
+    private VoucherResponse mapToAdminResponse(Voucher voucher) {
+        return VoucherResponse.builder()
+                .id(voucher.getId())
+                .code(voucher.getCode())
+                .name(voucher.getName())
+                .description(voucher.getDescription())
+                .discountType(voucher.getDiscountType())
+                .discountValue(voucher.getDiscountValue())
+                .maxDiscount(voucher.getMaxDiscount())
+                .minOrderAmount(voucher.getMinOrderAmount())
+                .usageLimit(voucher.getUsageLimit())
+                .claimedCount(voucher.getClaimedCount())
+                .maxClaimsPerUser(voucher.getMaxClaimsPerUser())
+                .startsAt(voucher.getStartsAt())
+                .expiresAt(voucher.getExpiresAt())
+                .active(voucher.getActive())
+                .shareable(voucher.getShareable())
+                .autoIssueOnPayment(voucher.getAutoIssueOnPayment())
+                .createdAt(voucher.getCreatedAt())
+                .updatedAt(voucher.getUpdatedAt())
+                .build();
     }
 }

@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -32,6 +33,12 @@ public class UserController {
         User user = getUserByPrincipal(principal);
         UserProfileResponse response = userService.updateProfile(user, request);
         return ApiResponse.success("Cập nhật hồ sơ thành công!", response);
+    }
+
+    @GetMapping("/admin/all")
+    public ApiResponse<List<UserProfileResponse>> getAllUsers(Principal principal) {
+        User admin = getUserByPrincipal(principal);
+        return ApiResponse.success("Lấy danh sách người dùng thành công", userService.getAllUsersForAdmin(admin));
     }
 
     private User getUserByPrincipal(Principal principal) {

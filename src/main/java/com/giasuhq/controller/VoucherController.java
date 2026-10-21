@@ -58,6 +58,40 @@ public class VoucherController {
         return ApiResponse.success("Tạo link chia sẻ voucher thành công", voucherService.shareVoucher(user, userVoucherId));
     }
 
+    @GetMapping("/admin/all")
+    public ApiResponse<List<VoucherResponse>> getAllVouchersForAdmin(Principal principal) {
+        User admin = getUserByPrincipal(principal);
+        return ApiResponse.success("Lấy toàn bộ danh sách khuyến mãi thành công", voucherService.getAllVouchersForAdmin(admin));
+    }
+
+    @PostMapping("/admin")
+    public ApiResponse<VoucherResponse> createVoucher(
+            @Valid @RequestBody com.giasuhq.dto.request.CreateVoucherRequest request,
+            Principal principal
+    ) {
+        User admin = getUserByPrincipal(principal);
+        return ApiResponse.success("Tạo chương trình khuyến mãi thành công", voucherService.createVoucher(admin, request));
+    }
+
+    @PutMapping("/admin/{id}/toggle-status")
+    public ApiResponse<VoucherResponse> toggleVoucherStatus(
+            @PathVariable Long id,
+            Principal principal
+    ) {
+        User admin = getUserByPrincipal(principal);
+        return ApiResponse.success("Cập nhật trạng thái khuyến mãi thành công", voucherService.toggleVoucherStatus(admin, id));
+    }
+
+    @DeleteMapping("/admin/{id}")
+    public ApiResponse<Void> deleteVoucher(
+            @PathVariable Long id,
+            Principal principal
+    ) {
+        User admin = getUserByPrincipal(principal);
+        voucherService.deleteVoucher(admin, id);
+        return ApiResponse.success("Xóa/Vô hiệu hóa khuyến mãi thành công", null);
+    }
+
     @PostMapping("/admin/issue")
     public ApiResponse<VoucherResponse> issueVoucher(
             @Valid @RequestBody IssueVoucherRequest request,
