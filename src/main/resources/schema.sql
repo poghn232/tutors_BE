@@ -375,7 +375,7 @@ CREATE TABLE IF NOT EXISTS tutor_posts (
     subject_id BIGINT NOT NULL,
     grade_level VARCHAR(50) NOT NULL,
     teaching_mode VARCHAR(20) NOT NULL,
-    city VARCHAR(100),
+    city VARCHAR(100) DEFAULT 'Hà Nội',
     district VARCHAR(100),
     detailed_address VARCHAR(255),
     sessions_per_week INT DEFAULT 2,
@@ -418,17 +418,5 @@ CREATE TABLE IF NOT EXISTS tutor_applications (
     INDEX idx_apps_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Seed Sample Tutor Posts
-INSERT IGNORE INTO tutor_posts (id, creator_id, title, subject_id, grade_level, teaching_mode, city, district, detailed_address, sessions_per_week, preferred_schedule, budget_amount, budget_type, tutor_gender_preference, tutor_type_preference, student_notes, requirements, status) VALUES
-(1, 2, 'Tìm gia sư Toán 12 ôn thi THPT Quốc Gia mục tiêu 8.5+', 1, 'Lớp 12', 'OFFLINE', 'TP. Hồ Chí Minh', 'Quận 1', '123 Đường Nguyễn Huệ, Phường Bến Nghé', 3, 'Tối Thứ 2, Thứ 4, Thứ 6 (19:30 - 21:00)', 250000.00, 'PER_SESSION', 'ANY', 'TEACHER', 'Học sinh đang có học lực khá, cần củng cố các dạng toán vận dụng cao hình học không gian và tích phân.', 'Yêu cầu gia sư có kinh nghiệm luyện thi THPT ít nhất 2 năm, phương pháp sư phạm mạch lạc.', 'OPEN'),
-(2, 2, 'Cần gia sư Tiếng Anh luyện thi IELTS 6.5+ cho học sinh lớp 10', 4, 'Lớp 10', 'ONLINE', 'TP. Hồ Chí Minh', 'Quận 3', '45 Đường Lê Quý Đôn, Phường Võ Thị Sáu', 2, 'Thứ 3, Thứ 7 (18:00 - 19:30)', 300000.00, 'PER_SESSION', 'FEMALE', 'ANY', 'Học sinh nắm ngữ pháp tốt nhưng kỹ năng Speaking còn rụt rè, phản xạ nghe chưa tự nhiên.', 'Gia sư có chứng chỉ IELTS 7.5 trở lên, phát âm chuẩn và kiên nhẫn sửa phát âm.', 'OPEN'),
-(3, 2, 'Tìm gia sư Vật Lý 11 kèm tại nhà lấy lại kiến thức cơ bản', 2, 'Lớp 11', 'OFFLINE', 'Hà Nội', 'Cầu Giấy', '88 Đường Xuân Thủy, Dịch Vọng Hậu', 2, 'Tối Thứ 3, Chủ Nhật (19:00 - 20:30)', 200000.00, 'PER_SESSION', 'ANY', 'STUDENT', 'Con bị hổng phần điện trường và mạch điện một chiều, điểm kiểm tra 1 tiết vừa rồi dưới trung bình.', 'Ưu tiên các bạn sinh viên ĐH Bách Khoa hoặc ĐH Sư Phạm nhiệt tình, chỉ bảo tận tâm.', 'OPEN'),
-(4, 2, 'Gia sư Hóa học 10 chương trình mới Kết nối tri thức', 3, 'Lớp 10', 'HYBRID', 'TP. Hồ Chí Minh', 'Quận 7', '12 Khu đô thị Phú Mỹ Hưng, Tân Phong', 2, 'Cuối tuần T7, CN (14:00 - 15:30)', 220000.00, 'PER_SESSION', 'ANY', 'ANY', 'Chương trình mới có nhiều nội dung thực nghiệm và liên kết hóa học học sinh khó hình dung.', 'Cần gia sư có phương pháp trực quan, nhiều bài tập áp dụng thực tế.', 'PENDING_APPROVAL');
-
--- Seed Sample Tutor Applications
-INSERT IGNORE INTO tutor_applications (id, post_id, tutor_id, cover_letter, proposed_rate, status) VALUES
-(1, 1, 1, 'Chào phụ huynh, tôi là Hoàng Thiên Ứng - Tiến sĩ Toán học. Tôi có hơn 8 năm kinh nghiệm giảng dạy và luyện thi đại học môn Toán với hàng chục học sinh đạt điểm 9+. Rất mong được đồng hành cùng cháu.', 250000.00, 'PENDING'),
-(2, 1, 11, 'Chào quý phụ huynh, em là cử nhân Sư phạm Toán với 3 năm dạy kèm khối 12. Em có hệ thống tài liệu tổng ôn phương pháp giải nhanh trắc nghiệm rất hiệu quả.', 220000.00, 'PENDING'),
-(3, 2, 13, 'Em chào phụ huynh, em tốt nghiệp ĐH Ngoại ngữ và sở hữu chứng chỉ IELTS 8.0 (Speaking 8.5). Em có lộ trình riêng giúp các em tự tin mở rộng vốn từ và phản xạ giao tiếp tự nhiên.', 300000.00, 'PENDING');
 
 

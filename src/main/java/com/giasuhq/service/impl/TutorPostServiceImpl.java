@@ -50,7 +50,7 @@ public class TutorPostServiceImpl implements TutorPostService {
                 .subject(subject)
                 .gradeLevel(request.getGradeLevel().trim())
                 .teachingMode(request.getTeachingMode())
-                .city(request.getCity() != null ? request.getCity().trim() : null)
+                .city(request.getCity() != null && !request.getCity().trim().isEmpty() ? request.getCity().trim() : "Hà Nội")
                 .district(request.getDistrict() != null ? request.getDistrict().trim() : null)
                 .detailedAddress(request.getDetailedAddress() != null ? request.getDetailedAddress().trim() : null)
                 .sessionsPerWeek(request.getSessionsPerWeek() != null && request.getSessionsPerWeek() > 0 ? request.getSessionsPerWeek() : 2)
