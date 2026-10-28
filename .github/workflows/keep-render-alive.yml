@@ -1,17 +1,74 @@
-name: Keep Render Alive
+name: Keep Render & System Alive
 
 on:
   schedule:
+    # Chạy mỗi 10 phút một lần (Render Free ngủ đông sau 15 phút không hoạt động)
     - cron: "*/10 * * * *"
-  workflow_dispatch:
+  workflow_dispatch: # Cho phép kích hoạt thủ công từ tab Actions trên GitHub
+
+concurrency:
+  group: keep-render-alive
+  cancel-in-progress: false
 
 jobs:
-  ping:
+  keep-alive:
+    name: Ping Render & Frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Ping Render backend
+      - name: Keep-alive Ping Routine
         run: |
-          curl -sS -o /dev/null \
-            --max-time 30 \
-            https://tutors-be.onrender.com/ \
-            || true
+          BACKEND_URL="https://tutors-be.onrender.com/api/health"
+          FRONTEND_URL="https://tutors-fe.vercel.app"
+
+          echo "=========================================="
+          echo "🚀 Bắt đầu chu kỳ giữ ấm hệ thống (Keep-alive)"
+          echo "⏰ Thời gian bắt đầu (UTC): $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "=========================================="
+
+          # Thực hiện 2 lần ping cách nhau 4 phút trong cùng 1 job
+          # Giúp bù đắp độ trễ hàng đợi (queue delay) của GitHub Actions cron,
+          # đảm bảo Render luôn nhận request dưới ngưỡng 15 phút ngủ đông.
+          for i in 1 2; do
+            echo ""
+            echo "--- [Lần $i/2] Ping Backend: $BACKEND_URL ---"
+            BE_RESPONSE=$(curl -sS -w "\nHTTP_STATUS:%{http_code}\nTIME_TOTAL:%{time_total}" \
+              --connect-timeout 15 \
+              --max-time 60 \
+              --retry 3 \
+              --retry-delay 5 \
+              "$BACKEND_URL" || true)
+
+            BE_CODE=$(echo "$BE_RESPONSE" | grep "HTTP_STATUS:" | cut -d':' -f2)
+            BE_TIME=$(echo "$BE_RESPONSE" | grep "TIME_TOTAL:" | cut -d':' -f2)
+            BE_BODY=$(echo "$BE_RESPONSE" | grep -v "HTTP_STATUS:" | grep -v "TIME_TOTAL:")
+
+            echo "Response Body: $BE_BODY"
+            echo "Status Code  : $BE_CODE"
+            echo "Response Time: ${BE_TIME}s"
+
+            if [ "$BE_CODE" = "200" ]; then
+              echo "✅ Backend Render đang thức và phản hồi tốt!"
+            else
+              echo "⚠️ Backend phản hồi mã $BE_CODE (đang khởi động lại hoặc mạng chậm)."
+            fi
+
+            echo ""
+            echo "--- [Lần $i/2] Ping Frontend: $FRONTEND_URL ---"
+            FE_CODE=$(curl -sS -o /dev/null -w "%{http_code}" \
+              --connect-timeout 10 \
+              --max-time 30 \
+              "$FRONTEND_URL" || true)
+            echo "Frontend Status Code: $FE_CODE"
+
+            if [ $i -lt 2 ]; then
+              echo ""
+              echo "⏳ Đợi 240 giây (4 phút) trước lần ping kế tiếp..."
+              sleep 240
+            fi
+          done
+
+          echo ""
+          echo "=========================================="
+          echo "✨ Hoàn thành chu kỳ giữ ấm lúc $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "=========================================="
