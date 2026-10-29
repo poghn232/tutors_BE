@@ -62,7 +62,7 @@ public class TutorServiceImpl implements TutorService {
     @Override
     public List<TutorResponse> findAllForAdmin() {
         Map<Long, RatingSummary> summaries = getRatingSummariesMap();
-        return tutorRepository.findAll()
+        return tutorRepository.findAllWithSubjects()
                 .stream()
                 .sorted((a, b) -> {
                     boolean aPending = "PENDING".equalsIgnoreCase(a.getVerificationStatus());
@@ -82,7 +82,7 @@ public class TutorServiceImpl implements TutorService {
 
     @Override
     public TutorResponse findById(Long id) {
-        Tutor tutor = tutorRepository.findById(id)
+        Tutor tutor = tutorRepository.findByIdWithSubjects(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Tutor not found with id: " + id));
         Double avg = reviewRepository.getAverageRatingByTutorId(id);
         long count = reviewRepository.countByTutorId(id);

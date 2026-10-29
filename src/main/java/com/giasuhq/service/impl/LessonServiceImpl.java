@@ -2,24 +2,26 @@ package com.giasuhq.service.impl;
 
 import com.giasuhq.dto.request.CreateLessonNoteRequest;
 import com.giasuhq.dto.request.CreateLessonRequest;
+import com.giasuhq.dto.request.GenerateAiNoteRequest;
+import com.giasuhq.dto.response.GenerateAiNoteResponse;
 import com.giasuhq.dto.response.LessonNoteResponse;
 import com.giasuhq.dto.response.LessonResponse;
 import com.giasuhq.entity.*;
 import com.giasuhq.exception.ResourceNotFoundException;
 import com.giasuhq.repository.*;
+import com.giasuhq.service.GeminiAiService;
 import com.giasuhq.service.LessonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import com.giasuhq.dto.request.GenerateAiNoteRequest;
-import com.giasuhq.dto.response.GenerateAiNoteResponse;
-import com.giasuhq.service.GeminiAiService;
 
 @Service
 @RequiredArgsConstructor
@@ -46,11 +48,11 @@ public class LessonServiceImpl implements LessonService {
                 .build();
 
         Lesson savedLesson = lessonRepository.save(lesson);
-        return mapToLessonResponse(savedLesson);
+        return mapToLessonResponse(savedLesson, null);
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<LessonResponse> getLessonsForUser(User currentUser) {
         List<Lesson> lessons;
         Role role = currentUser.getRole();
@@ -63,8 +65,26 @@ public class LessonServiceImpl implements LessonService {
             lessons = lessonRepository.findByTutoringClass_Parent_IdOrderByStartTimeDesc(currentUser.getId());
         }
 
+        if (lessons == null || lessons.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Long> lessonIds = lessons.stream()
+                .map(Lesson::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        Map<Long, LessonNote> noteMap = lessonNoteRepository.findByLessonIdIn(lessonIds)
+                .stream()
+                .filter(n -> n.getLesson() != null && n.getLesson().getId() != null)
+                .collect(Collectors.toMap(
+                        n -> n.getLesson().getId(),
+                        n -> n,
+                        (existing, replacement) -> existing
+                ));
+
         return lessons.stream()
-                .map(this::mapToLessonResponse)
+                .map(lesson -> mapToLessonResponse(lesson, noteMap.get(lesson.getId())))
                 .collect(Collectors.toList());
     }
 
@@ -77,7 +97,8 @@ public class LessonServiceImpl implements LessonService {
 
         lesson.setStatus(status);
         Lesson updatedLesson = lessonRepository.save(lesson);
-        return mapToLessonResponse(updatedLesson);
+        LessonNote note = lessonNoteRepository.findByLessonId(updatedLesson.getId()).orElse(null);
+        return mapToLessonResponse(updatedLesson, note);
     }
 
     @Override
@@ -158,17 +179,21 @@ public class LessonServiceImpl implements LessonService {
     }
 
     private LessonResponse mapToLessonResponse(Lesson lesson) {
-        TutoringClass tc = lesson.getTutoringClass();
         LessonNote note = lessonNoteRepository.findByLessonId(lesson.getId()).orElse(null);
+        return mapToLessonResponse(lesson, note);
+    }
+
+    private LessonResponse mapToLessonResponse(Lesson lesson, LessonNote note) {
+        TutoringClass tc = lesson.getTutoringClass();
 
         return LessonResponse.builder()
                 .id(lesson.getId())
-                .classId(tc.getId())
-                .className(tc.getClassName())
-                .subjectName(tc.getSubject() != null ? tc.getSubject().getName() : "Môn học")
-                .tutorName(tc.getTutor() != null ? tc.getTutor().getFullName() : "Gia sư")
-                .studentName(tc.getStudentName() != null ? tc.getStudentName() : (tc.getParent() != null ? tc.getParent().getStudentName() : "Học sinh"))
-                .parentName(tc.getParent() != null ? tc.getParent().getFullName() : "Phụ huynh")
+                .classId(tc != null ? tc.getId() : null)
+                .className(tc != null ? tc.getClassName() : "")
+                .subjectName(tc != null && tc.getSubject() != null ? tc.getSubject().getName() : "Môn học")
+                .tutorName(tc != null && tc.getTutor() != null ? tc.getTutor().getFullName() : "Gia sư")
+                .studentName(tc != null && tc.getStudentName() != null ? tc.getStudentName() : (tc != null && tc.getParent() != null ? tc.getParent().getStudentName() : "Học sinh"))
+                .parentName(tc != null && tc.getParent() != null ? tc.getParent().getFullName() : "Phụ huynh")
                 .title(lesson.getTitle())
                 .startTime(lesson.getStartTime())
                 .endTime(lesson.getEndTime())
